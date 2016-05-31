@@ -27,7 +27,9 @@ def open_all_valves(valve_list):
     # sleep might not be needed
     yield from bp.sleep(2)
         
-EDGE_MAP = {'Ce_M': {'start': 875, 'step_size':0.25, 'num_pts': 10} }
+EDGE_MAP = {'Ce_M': {'start': 875, 'step_size':0.25, 'num_pts': 10},
+            'O_K': {'start': 520, 'step_size':0.25, 'num_pts': 10}}
+
 
 SAMPLE_MAP = {'sample1': {'name': 'long_scientific_name1', 'pos': 5, 'interesting_edges': ['Ce_M']},
               'sample2': {'name': 'long_scientific_name2', 'pos': 7},
@@ -43,7 +45,7 @@ VORTEX_SETTINGS = {'Ce_M': {'vortex.peaking_time': 0.25,
                             '---': 3600}
                    }
 
-def edge_ascan(sample_name, edge):
+def edge_ascan(sample_name, edge, md=None):
     '''Run a multi-edge nexafs scan for single sample and edge
 
     Parameters
@@ -59,17 +61,24 @@ def edge_ascan(sample_name, edge):
 
 
     '''
+    if md is None:
+        md = {}
+    local_md = {'plan_name': 'edge_ascan'}
+    md = ChainMap(md, local_md)
+   
     e_scan_params = EDGE_MAP[edge]
     # TODO configure the vortex
     
     sample_props = SAMPLE_MAP[sample_name]
     # sample_props = sample_manager.find(sample_name)
+    local_md.update(sample_props)
     
     init_group = 'ME_INIT_' + str(uuid.uuid4())
     yield from bp.abs_set(ioxas_x, sample_props['pos'], group=init_group)
     yield from bp.abs_set(pgm_energy, e_scan_params['start'], group=init_group)
     yield from open_all_valves(all_valves)
     yield from bp.wait(init_group)
+    
     # TODO make this an ohypd obj!!!!!!
     #caput('XF:23IDA-PPS:2{PSh}Cmd:Opn-Cmd',1)
     yield from bp.sleep(2)
@@ -80,12 +89,40 @@ def edge_ascan(sample_name, edge):
 
     yield from bp.configure(vortex, VORTEX_SETTING['edge'])
     
+    fig = plt.figure(edge)
+    lp = bs.callbacks.LivePlot('det', 'motor', fig=fig)
     # TODO use custom subsriptions for plotting
-    yield from ascan(pgm_energy,
-                     e_scan_params['start'],
-                     e_scan_params['start'] +  e_scan_params['step_size']*e_scan_params['num_pts'],
-                     e_scan_params['num_pts'])
+    scan_args = (pgm_energy, e_scan_params['start'],
+                 (e_scan_params['start'] +
+                  e_scan_params['step_size']*e_scan_params['num_pts']),
+                 e_scan_params['num_pts'])
+    ret = []
 
+    res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+    if res is None:
+        res = []
+    ret.extend(res)
+    if not ret:
+        return ret
+    
+    hdr = db[ret[0]]
+    redo_count = how_many_more_times_to_take_data(hdr)
+    for j in range(redo_count):
+        res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+        ret.extend(res)
+
+
+    # new_count_time = compute_new_count_time(hdr, old_count_time)
+    # if new_count_time != old_count_time:
+    #     yield from bp.configure(vortex, {'count_time': new_count_time})
+    #     res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+    #     ret.extend(res)
+        
+    return ret
+
+def how_many_more_times_to_take_data(hdr):
+    table = db.get_table()
+    return int(15 // (table.sclr2.max() / table.sclr2.min()))
 
 def pass_filter(sample_name, edge):
     return edge in SAMPLE_MAP[sample_name]['interesting_edges']
@@ -101,3 +138,41 @@ def multi_sample_edge(*, edge_list=None, sample_list=None):
     for inp in cy:
         if pass_filter(**inp):
             yield from edge_ascan(**inp)
+
+def dummy_edge_scan(sample_name, edge, md=None):
+    from bluesky.examples import det, motor, det2
+
+    if md is None:
+        md = {}
+    local_md = {'plan_name': 'edge_ascan'}
+    md = ChainMap(md, local_md)
+   
+    e_scan_params = EDGE_MAP[edge]
+    # TODO configure the vortex
+    
+    sample_props = SAMPLE_MAP[sample_name]
+    # sample_props = sample_manager.find(sample_name)
+    local_md.update(sample_props)
+    lp_list = []
+    for n in ['det', 'det2']:
+        fig = plt.figure(edge + ': ' + n)
+        lp = bs.callbacks.LivePlot(n, 'motor', fig=fig)
+        lp_list.append(lp)
+    yield from bp.subs_wrapper(bp.relative_scan([det, det2], motor, -5, 5, 15, md=md),
+                               lp_list)
+    
+
+def save_csv_callback(name, doc):
+    
+    if name != 'stop':
+        return
+    print(doc)
+    start_doc = doc['run_start']
+    hdr = db[start_doc]
+    if 
+    table = db.get_table(hdr)
+
+    fn_template = '/tmp/scan_{name}.csv'
+    file_name = fn_template.format(**hdr['start'])
+    table.to_csv(file_name, index=False)
+    print('saved CVS to: {!r}'.format(file_name))

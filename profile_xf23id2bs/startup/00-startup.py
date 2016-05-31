@@ -63,8 +63,30 @@ LOGBOOKS = ['Data Acquisition']  # list of logbook names to publish to
 simple_olog_client = SimpleOlogClient()
 generic_logbook_func = simple_olog_client.log
 configured_logbook_func = partial(generic_logbook_func, logbooks=LOGBOOKS)
+desc_template = """
+{{- start.plan_name }} ['{{ start.uid[:6] }}'] (scan num: {{ start.scan_id }})
+Scan Plan
+---------
+{{ start.plan_type }}
+{%- for k, v in start.plan_args | dictsort %}
+    {{ k }}: {{ v }}
+{%-  endfor %}
+{% if 'signature' in start -%}
+Call:
+    {{ start.signature }}
+{% endif %}
+Metadata
+--------
+{% for k, v in start.items() -%}
+{%- if k not in ['plan_type', 'plan_args'] -%}{{ k }} : {{ v }}
+{% endif -%}
+{%- endfor -%}"""
 
-cb = logbook_cb_factory(configured_logbook_func)
+desc_dispatch = {'edge_ascan': """
+{{- start.name }} [{{ start.plan_name }} '{{ start.uid[:6] }}'] (scan num: {{ start.scan_id }})"""}
+
+cb = logbook_cb_factory(configured_logbook_func, desc_template=desc_template,
+                        desc_dispatch=desc_dispatch)
 RE.subscribe('start', cb)
 
 logbook = simple_olog_client
