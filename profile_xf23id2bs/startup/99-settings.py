@@ -1,5 +1,6 @@
 #new figure feature
 import bluesky.plans as bp
+import bluesky as bs
 import uuid
 from cycler import cycler
 
@@ -22,28 +23,66 @@ def open_all_valves(valve_list):
         
     '''
     for v in valve_list:
-        yield from bp.abs_set(v, 1, 'valve_set')
+        yield from bp.abs_set(v, 1, group='valve_set')
     yield from bp.wait('valve_set')
     # sleep might not be needed
     yield from bp.sleep(2)
         
-EDGE_MAP = {'Ce_M': {'start': 875, 'step_size':0.25, 'num_pts': 10},
-            'O_K': {'start': 520, 'step_size':0.25, 'num_pts': 10}}
-
-
-SAMPLE_MAP = {'sample1': {'name': 'long_scientific_name1', 'pos': 5, 'interesting_edges': ['Ce_M']},
-              'sample2': {'name': 'long_scientific_name2', 'pos': 7},
-              'sample3': {'name': 'long_scientific_name3', 'pos': 9},
-              'sample4': {'name': 'long_scientific_name4', 'pos': 11},
-              'sample5': {'name': 'long_scientific_name5', 'pos': 13},
-              'sample6': {'name': 'long_scientific_name6', 'pos': 15},
+EDGE_MAP = {'Ce_M': {'start': 875, 'step_size':1, 'num_pts': 40},
+            'O_K': {'start': 525, 'step_size':1, 'num_pts': 40},
+            'Ni_L': {'start': 845, 'step_size':1, 'num_pts': 40},
+            'Zn_L': {'start': 1010, 'step_size':1, 'num_pts': 50},
+            'Cu_L': {'start': 920, 'step_size':1, 'num_pts': 40},
+            'Al_L': {'start': 1548, 'step_size':1, 'num_pts': 40},
+            'Ti_L': {'start': 450, 'step_size':1, 'num_pts': 25},
+            'Fe_L': {'start': 700, 'step_size':1, 'num_pts': 40}
 }
 
-VORTEX_SETTINGS = {'Ce_M': {'vortex.peaking_time': 0.25,
-                            'vortex.energy_threshold': 0.65,
-                            '---': 1400,
-                            '---': 3600}
-                   }
+
+SAMPLE_MAP = {'sample1': {'name': 'Ni_foil', 'pos': 252, 'interesting_edges': ['Ni_L']},
+              'sample2': {'name': 'Zn_foil', 'pos': 259, 'interesting_edges': ['Zn_L']},
+              'sample3': {'name': 'Cu_foil', 'pos': 267, 'interesting_edges': ['Cu_L']},
+              'sample4': {'name': 'Al_foil', 'pos': 276, 'interesting_edges': ['Al_L']},
+              'sample5': {'name': 'TiO2', 'pos': 282, 'interesting_edges': ['Ti_L', 'O_K']},
+              'sample6': {'name': 'Fe2O3', 'pos': 290, 'interesting_edges': ['Fe_L', 'O_K']},
+}
+
+VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 850,
+                            'mca.rois.roi4.hi_chan': 1000},
+
+                   'Ni_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 800,
+                            'mca.rois.roi4.hi_chan': 1000},
+
+                   'Al_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 1300,
+                            'mca.rois.roi4..hi_chan': 1600},
+
+                   'Fe_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 700,
+                            'mca.rois.roi4.hi_chan': 900},
+                   
+                   'Ti_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 400,
+                            'mca.rois.roi4.hi_chan': 600},
+
+                   'O_K': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 450,
+                            'mca.rois.roi4.hi_chan': 650},
+
+                   'Zn_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 900,
+                            'mca.rois.roi4.hi_chan': 1150},
+}
+
 
 def edge_ascan(sample_name, edge, md=None):
     '''Run a multi-edge nexafs scan for single sample and edge
@@ -87,10 +126,12 @@ def edge_ascan(sample_name, edge, md=None):
     #caput('XF:23IDA-OP:2{Mir:1A-Ax:FPit}Mtr_POS_SP',50)
     yield from bp.sleep(5)
 
-    yield from bp.configure(vortex, VORTEX_SETTING['edge'])
-    
-    fig = plt.figure(edge)
-    lp = bs.callbacks.LivePlot('det', 'motor', fig=fig)
+    yield from bp.configure(vortex, VORTEX_SETTINGS[edge])
+    lp_list = []
+    for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
+        fig = plt.figure(edge + ': ' + n)
+        lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
+        lp_list.append(lp)
     # TODO use custom subsriptions for plotting
     scan_args = (pgm_energy, e_scan_params['start'],
                  (e_scan_params['start'] +
@@ -98,18 +139,18 @@ def edge_ascan(sample_name, edge, md=None):
                  e_scan_params['num_pts'])
     ret = []
 
-    res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+    res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp_list)
     if res is None:
         res = []
     ret.extend(res)
     if not ret:
         return ret
     
-    hdr = db[ret[0]]
-    redo_count = how_many_more_times_to_take_data(hdr)
-    for j in range(redo_count):
-        res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
-        ret.extend(res)
+    # hdr = db[ret[0]]
+    # redo_count = how_many_more_times_to_take_data(hdr)
+    # for j in range(redo_count):
+    #     res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+    #     ret.extend(res)
 
 
     # new_count_time = compute_new_count_time(hdr, old_count_time)
@@ -120,9 +161,9 @@ def edge_ascan(sample_name, edge, md=None):
         
     return ret
 
-def how_many_more_times_to_take_data(hdr):
-    table = db.get_table()
-    return int(15 // (table.sclr2.max() / table.sclr2.min()))
+#def how_many_more_times_to_take_data(hdr):
+#    table = db.get_table()
+#    return int(15 // (table.sclr2.max() / table.sclr2.min()))
 
 def pass_filter(sample_name, edge):
     return edge in SAMPLE_MAP[sample_name]['interesting_edges']
@@ -162,17 +203,17 @@ def dummy_edge_scan(sample_name, edge, md=None):
                                lp_list)
     
 
-def save_csv_callback(name, doc):
+#def save_csv_callback(name, doc):
     
-    if name != 'stop':
-        return
-    print(doc)
-    start_doc = doc['run_start']
-    hdr = db[start_doc]
-    if 
-    table = db.get_table(hdr)
+#    if name != 'stop':
+#        return
+#    print(doc)
+#    start_doc = doc['run_start']
+#    hdr = db[start_doc]
+#    if 
+#    table = db.get_table(hdr)
 
-    fn_template = '/tmp/scan_{name}.csv'
-    file_name = fn_template.format(**hdr['start'])
-    table.to_csv(file_name, index=False)
-    print('saved CVS to: {!r}'.format(file_name))
+#    fn_template = '/tmp/scan_{name}.csv'
+#    file_name = fn_template.format(**hdr['start'])
+#    table.to_csv(file_name, index=False)
+#    print('saved CVS to: {!r}'.format(file_name))

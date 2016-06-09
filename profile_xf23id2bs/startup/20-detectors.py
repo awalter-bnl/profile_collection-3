@@ -15,7 +15,12 @@ vortex = Vortex('XF:23ID2-ES{Vortex}', name='vortex')
 vortex.read_attrs = ['mca.rois']
 vortex.mca.read_attrs.append('rois')
 vortex.mca.rois.read_attrs = ['roi0','roi1','roi2','roi3','roi4']
+vortex.vortex.energy_threshold.tolerance = .005
 vortex.configuration_attrs = ['vortex.peaking_time', 'vortex.energy_threshold', 'mca.rois.roi4.hi_chan',
                               'mca.rois.roi4.lo_chan']
 #gs.TABLE_COLS = ['vortex_mca_rois_roi4_count']; gs.PLOT_Y = 'vortex_mca_rois_roi4_count'
 
+ring_curr = EpicsSignal('XF:23ID-SR{}I-I', name='ring_curr')
+
+sample_sclr_gain = EpicsSignalRO('XF:23ID2-ES{CurrAmp:3}Gain:Val-SP', name='sample_sclr_gain', string=True)
+sample_sclr_decade = EpicsSignalRO('XF:23ID2-ES{CurrAmp:3}Gain:Decade-SP', name='sample_sclr_decade', string=True)
