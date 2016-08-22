@@ -42,6 +42,15 @@ class PGMEnergy(PVPositionerPC):
     stop_signal = Cpt(EpicsSignal, '}Cmd:Stop-Cmd')
     stop_value = 1
 
+class MonoFly(Device):
+    start = Cpt(EpicsSignal, '}Enrgy:Start-SP')
+    stop = Cpt(EpicsSignal, '}Enrgy:Stop-SP')
+    velocity = Cpt(EpicsSignal, '}Enrgy:FlyVelo-SP')
+
+    fly_start = Cpt(EpicsSignal, '}Cmd:FlyStart-Cmd.PROC')
+    fly_stop = Cpt(EpicsSignal, '}Cmd:Stop-Cmd.PROC')
+    scan_status = Cpt(EpicsSignalRO, '}Sts:Scan-Sts', string=True)
+
 
 class PGM(Device):
     energy = Cpt(PGMEnergy, '')
@@ -49,13 +58,14 @@ class PGM(Device):
     x = Cpt(EpicsMotor, '-Ax:MirX}Mtr')
     grt_pit = Cpt(EpicsMotor, '-Ax:GrtP}Mtr')
     grt_x = Cpt(EpicsMotor, '-Ax:GrtX}Mtr')
+    fly = Cpt(MonoFly, '')
+    move_status = Cpt(EpicsSignalRO, '}Sts:Move-Sts', string=True)
 
-
-
-_pgm = PGM('XF:23ID2-OP{Mono', name='pgm')
+pgm = PGM('XF:23ID2-OP{Mono', name='pgm')
 #pgm_en = PGMEnergy('XF:23ID1-OP{Mono', name='pgm_en')
-pgm_energy = _pgm.energy
+pgm_energy = pgm.energy
 pgm_energy.name = 'pgm_energy'
+pgm.energy.read_attrs = ['readback', 'setpoint']
 
 class SlitsGapCenter(Device):
     xg = Cpt(EpicsMotor, '-Ax:XGap}Mtr')
