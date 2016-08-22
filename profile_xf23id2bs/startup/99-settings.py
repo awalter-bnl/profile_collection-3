@@ -132,14 +132,14 @@ def edge_ascan(sample_name, edge, md=None):
         fig = plt.figure(edge + ': ' + n)
         lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
         lp_list.append(lp)
-    # TODO use custom subsriptions for plotting
-    scan_args = (pgm_energy, e_scan_params['start'],
-                 (e_scan_params['start'] +
-                  e_scan_params['step_size']*e_scan_params['num_pts']),
-                 e_scan_params['num_pts'])
+
+    scan_kwargs = {'start': e_scan_params['start'],
+                   'stop': (e_scan_params['start'] + e_scan_params['step_size']*e_scan_params['num_pts']),
+                   'velocity': .2,
+                   'md': md}
     ret = []
 
-    res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp_list)
+    res = yield from bp.subs_wrapper(_run_E_ramp(gs.DETS, **scan_kwargs), lp_list)
     if res is None:
         res = []
     ret.extend(res)
