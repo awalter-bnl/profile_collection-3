@@ -15,12 +15,24 @@ def change_epu_flt_link(new_target):
 
     
 def _run_E_ramp(dets, start, stop, velocity, *, md=None):
+    if md is None:
+        md = {}
+
+    md = ChainMap(md, {'plan_args': {'dets': list(map(repr, dets)),
+                                     'start': start,
+                                     'stop': stop,
+                                     'velocity': velocity},
+                       'plan_name': 'E_ramp'})
     # put the energy at the starting value
     yield from abs_set(pgm.energy, start, wait=True)
 
     yield from abs_set(pgm.fly.start, start, wait=True)
     yield from abs_set(pgm.fly.stop, stop, wait=True)
     yield from abs_set(pgm.fly.velocity, velocity, wait=True)
+
+    # TODO do this with stage
+    old_db = epu1.flt.output_deadband.get()
+    yield from abs_set(epu1.flt.output_deadband, 16)
 
     # get the old vlaue
     v = (yield from read(epu1.flt.input_pv))
@@ -36,7 +48,8 @@ def _run_E_ramp(dets, start, stop, velocity, *, md=None):
         yield from abs_set(pgm.energy, pgm.energy.position, wait=True)
         # set the interpolator to look at what it was looking at before
         # the scan.  This should be the energy set point.
-        yield from abs_set(epu1.flt.input_pv, old_link)
+        yield from abs_set(epu1.flt.input_pv, old_link, wait=True)
+        yield from abs_set(epu1.flt.output_deadband, old_db, wait=True)
     
     # change to track the readout energy
     yield from change_epu_flt_link(pgm_energy.readback.pvname)
@@ -64,6 +77,7 @@ def _run_E_ramp(dets, start, stop, velocity, *, md=None):
     def inner_plan():
         yield from trigger_and_read(dets)
 
+    print(md)
     rp = ramp_plan(go_plan(), pgm.energy,
                    inner_plan, period=None, md=md)
         
