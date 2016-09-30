@@ -26,8 +26,8 @@ def _run_E_ramp(dets, start, stop, velocity, *, md=None):
     # put the energy at the starting value
     yield from abs_set(pgm.energy, start, wait=True)
 
-    yield from abs_set(pgm.fly.start, start, wait=True)
-    yield from abs_set(pgm.fly.stop, stop, wait=True)
+    yield from abs_set(pgm.fly.start_sig, start, wait=True)
+    yield from abs_set(pgm.fly.stop_sig, stop, wait=True)
     yield from abs_set(pgm.fly.velocity, velocity, wait=True)
 
     # TODO do this with stage

@@ -43,8 +43,8 @@ class PGMEnergy(PVPositionerPC):
     stop_value = 1
 
 class MonoFly(Device):
-    start = Cpt(EpicsSignal, '}Enrgy:Start-SP')
-    stop = Cpt(EpicsSignal, '}Enrgy:Stop-SP')
+    start_sig = Cpt(EpicsSignal, '}Enrgy:Start-SP')
+    stop_sig = Cpt(EpicsSignal, '}Enrgy:Stop-SP')
     velocity = Cpt(EpicsSignal, '}Enrgy:FlyVelo-SP')
 
     fly_start = Cpt(EpicsSignal, '}Cmd:FlyStart-Cmd.PROC')
