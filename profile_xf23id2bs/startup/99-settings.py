@@ -100,6 +100,7 @@ def edge_ascan(sample_name, edge, md=None):
     if md is None:
         md = {}
     local_md = {'plan_name': 'edge_ascan'}
+    local_md['edge'] = edge
     md = ChainMap(md, local_md)
    
     e_scan_params = EDGE_MAP[edge]
@@ -151,7 +152,8 @@ def edge_ascan(sample_name, edge, md=None):
                    'md': md}
     ret = []
 
-    res = yield from bp.subs_wrapper(E_ramp(**scan_kwargs), lp_list)
+    res = yield from bp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
+                                                             'stop': save_csv})
     if res is None:
         res = []
     ret.extend(res)
@@ -215,6 +217,14 @@ def dummy_edge_scan(sample_name, edge, md=None):
     yield from bp.subs_wrapper(bp.relative_scan([det, det2], motor, -5, 5, 15, md=md),
                                lp_list)
     
+
+def save_csv(name, stop_doc):
+    h = db[stop_doc['run_start']]
+    df = db.get_table(h)
+    df['Norm'] = df['sclr_ch4'] / df['sclr_ch3']
+    fn = '{name}_{edge}_{scan_id}.csv'.format(**h.start)
+    df.to_csv(fn,columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
+     
 
 #def save_csv_callback(name, doc):
     
