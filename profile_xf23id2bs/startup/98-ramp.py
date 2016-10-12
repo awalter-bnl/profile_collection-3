@@ -1,7 +1,9 @@
 from bluesky.plans import *
 from ophyd import StatusBase
 import time
-from bluesky.spec_api import inner_spec_decorator, setup_plot, setup_livetable
+from bluesky.spec_api import inner_spec_decorator, setup_plot, setup_livetable, _figure_name
+import bluesky as bs
+
 
 def change_epu_flt_link(new_target):
     v = (yield from read(epu1.flt.input_pv))
@@ -13,6 +15,28 @@ def change_epu_flt_link(new_target):
     new_pv = ' '.join([new_target] + pts[1:])
     yield from abs_set(epu1.flt.input_pv, new_pv)
 
+class NormPlot(bs.callbacks.LivePlot):
+    def event(self,doc):
+        doc = dict(doc)
+        doc['data'] = dict(doc['data'])
+        doc['data']['norm_intensity'] = doc['data']['sclr_ch4']/doc['data']['sclr_ch3']
+        super().event(doc)
+
+
+def setup_norm_plot(*, motors, gs):
+    """Setup a LivePlot by inspecting motors and gs.
+    If motors is empty, use sequence number.
+    """
+    y_key = gs.PLOT_Y
+    if motors:
+        x_key = first_key_heuristic(list(motors)[0])
+        fig_name = _figure_name('BlueSky {} v {}'.format(y_key, x_key))
+        fig = plt.figure(fig_name)
+        return NormPlot(y_key, x_key, fig=fig)
+    else:
+        fig_name = _figure_name('BlueSky: {} v sequence number'.format(y_key))
+        fig = plt.figure(fig_name)
+        return NormPlot(y_key, fig=fig)
     
 def _run_E_ramp(dets, start, stop, velocity, *, md=None):
     if md is None:
@@ -90,7 +114,8 @@ def E_ramp(start, stop, velocity, time=None, *, md=None):
 
     return (yield from inner(gs.DETS + [pgm.energy], start, stop, velocity, md=md))
 
-gs.SUB_FACTORIES['E_ramp'] = [setup_plot, setup_livetable]
+
+gs.SUB_FACTORIES['E_ramp'] = [setup_norm_plot, setup_livetable]
 
 
 def _epu_ramp(dets, start, stop):
