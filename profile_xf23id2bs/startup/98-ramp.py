@@ -131,3 +131,12 @@ def _epu_ramp(dets, start, stop):
         
     return (yield from (ramp_plan(go_plan(), pgm.energy,
                                   inner_plan, period=None, md=md)))
+
+def fix_epu():
+    # move the energy setpoint to where the energy really is
+    yield from abs_set(pgm.energy, pgm.energy.position, wait=True)
+    # set the interpolator to look at what it was looking at before
+    # the scan.  This should be the energy set point.
+    yield from abs_set(epu1.flt.input_pv, 'XF:23ID2-OP{Mono}Enrgy-SP CP MS', wait=True)
+    yield from abs_set(epu1.flt.output_deadband, 0, wait=True)
+
