@@ -49,41 +49,41 @@ SAMPLE_MAP = {'sample1': {'name': 'Ni_foil', 'pos': 252, 'interesting_edges': ['
               'sample6': {'name': 'Fe2O3', 'pos': 290, 'interesting_edges': ['Fe_L', 'O_K']},
 }
 
-VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 850,
-                            'mca.rois.roi4.hi_chan': 1000},
+#VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 850,
+#                            'mca.rois.roi4.hi_chan': 1000},
 
-                   'Ni_L': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 800,
-                            'mca.rois.roi4.hi_chan': 1000},
+#                   'Ni_L': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 800,
+#                            'mca.rois.roi4.hi_chan': 1000},
 
-                   'Al_L': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 1300,
-                            'mca.rois.roi4..hi_chan': 1600},
+#                   'Al_L': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 1300,
+#                            'mca.rois.roi4..hi_chan': 1600},
 
-                   'Fe_L': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 700,
-                            'mca.rois.roi4.hi_chan': 900},
+#                   'Fe_L': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 700,
+#                            'mca.rois.roi4.hi_chan': 900},
                    
-                   'Ti_L': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 400,
-                            'mca.rois.roi4.hi_chan': 600},
+#                   'Ti_L': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 400,
+#                            'mca.rois.roi4.hi_chan': 600},
 
-                   'O_K': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 450,
-                            'mca.rois.roi4.hi_chan': 650},
+#                   'O_K': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 450,
+#                            'mca.rois.roi4.hi_chan': 650},
 
-                   'Zn_L': {'vortex.peaking_time': 0.4,
-                            'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 900,
-                            'mca.rois.roi4.hi_chan': 1150},
-}
+#                   'Zn_L': {'vortex.peaking_time': 0.4,
+#                            'vortex.energy_threshold': 0.05,
+#                            'mca.rois.roi4.lo_chan': 900,
+#                            'mca.rois.roi4.hi_chan': 1150},
+#}
 
 
 def edge_ascan(sample_name, edge, md=None):
@@ -128,25 +128,41 @@ def edge_ascan(sample_name, edge, md=None):
     #caput('XF:23IDA-OP:2{Mir:1A-Ax:FPit}Mtr_POS_SP',50)
     yield from bp.sleep(5)
 
-    yield from bp.configure(vortex, VORTEX_SETTINGS[edge])
+#    yield from bp.configure(vortex, VORTEX_SETTINGS[edge])
     lp_list = []
-    for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
+#    for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
+#        fig = plt.figure(edge + ': ' + n)
+#        lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
+#        lp_list.append(lp)
+
+    class norm_plot(bs.callbacks.LivePlot):
+        def event(self,doc):
+            try:
+                doc.data['norm_intensity'] = doc.data['sclr_ch4']/doc.data['sclr_ch3']
+            except KeyError:
+                pass
+            super().event(doc)       
+
+    for n in ['sclr_ch4']:
         fig = plt.figure(edge + ': ' + n)
-        lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
+        # lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
+        lp = norm_plot('norm_intensity', 'pgm_energy_readback', fig=fig)
         lp_list.append(lp)
 
     scan_kwargs = {'start': e_scan_params['start'],
                    'stop': (e_scan_params['start'] + e_scan_params['step_size']*e_scan_params['num_pts']),
-                   'velocity': .2,
+                   'velocity': .1, # e_scan_params['velocity']
+                   # 'deadband': e_scan_params['deadband']
                    'md': md}
     ret = []
 
-    res = yield from bp.subs_wrapper(_run_E_ramp(gs.DETS, **scan_kwargs), lp_list)
+    res = yield from bp.subs_wrapper(E_ramp(**scan_kwargs), lp_list)
     if res is None:
         res = []
     ret.extend(res)
     if not ret:
         return ret
+
     
     # hdr = db[ret[0]]
     # redo_count = how_many_more_times_to_take_data(hdr)
