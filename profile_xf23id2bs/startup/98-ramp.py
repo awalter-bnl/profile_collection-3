@@ -38,7 +38,8 @@ def setup_norm_plot(*, motors, gs):
         fig = plt.figure(fig_name)
         return NormPlot(y_key, fig=fig)
     
-def _run_E_ramp(dets, start, stop, velocity, *, md=None):
+
+def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     if md is None:
         md = {}
 
@@ -56,7 +57,7 @@ def _run_E_ramp(dets, start, stop, velocity, *, md=None):
 
     # TODO do this with stage
     old_db = epu1.flt.output_deadband.get()
-    yield from abs_set(epu1.flt.output_deadband, 16)
+    yield from abs_set(epu1.flt.output_deadband, deadband)
 
     # get the old vlaue
     v = (yield from read(epu1.flt.input_pv))
@@ -108,11 +109,12 @@ def _run_E_ramp(dets, start, stop, velocity, *, md=None):
     return (yield from finalize_wrapper(rp, clean_up()))
 
     
-def E_ramp(start, stop, velocity, time=None, *, md=None):
+def E_ramp(start, stop, velocity, time=None, *, deadband=8, md=None):
     motors = [pgm.energy]
     inner = inner_spec_decorator('E_ramp', time, motors)(_run_E_ramp)
 
-    return (yield from inner(gs.DETS + [pgm.energy], start, stop, velocity, md=md))
+    return (yield from inner(gs.DETS + [pgm.energy], start, stop, velocity, 
+                             deadband=deadband, md=md))
 
 
 gs.SUB_FACTORIES['E_ramp'] = [setup_norm_plot, setup_livetable]
