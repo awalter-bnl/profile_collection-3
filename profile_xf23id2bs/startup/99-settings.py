@@ -30,10 +30,9 @@ def open_all_valves(valve_list):
     # sleep might not be needed
     yield from bp.sleep(2)
 
-_edge_fn = os.path.join(os.path.dirname(__file__),
-                        'edge_map.json')
+_edge_fn = os.path.join(os.path.dirname(__file__), 'edge_map.json')
 with open(_edge_fn, 'rt') as fin:        
-	EDGE_MAP = json.load(fin)
+    EDGE_MAP = json.load(fin)
 
 
 
