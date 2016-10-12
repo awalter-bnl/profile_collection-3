@@ -174,7 +174,7 @@ def multi_sample_edge(*, edge_list=None, sample_list=None):
         sample_list = list(SAMPLE_MAP)
     if edge_list is None:
         edge_list = list(EDGE_MAP)
-        
+    edge_list = sorted(edge_list, key=lambda k: EDGE_MAP[k]['start'])        
     cy = cycler('edge', edge_list) * cycler('sample_name', sample_list)
     for inp in cy:
         if pass_filter(**inp):
