@@ -38,16 +38,23 @@ from bluesky.spec_api import *
 from bluesky.global_state import gs, abort, stop, resume
 # from databroker import (DataBroker as db, get_events, get_images,
 #                        get_table, get_fields, restream, process)
+
+def ensure_proposal_id(md):
+   if 'proposal_id' not in md:
+       raise ValueError("You forgot the proposal id.")
+
+
+
 from time import sleep
 import numpy as np
 
 RE = gs.RE  # convenience alias
-mds = MDS({'host':'xf23id-ca.cs.nsls2.local','database': 'datastore2', 
+mds = MDS({'host':'xf23id-ca.cs.nsls2.local','database': 'datastore-23id2', 
 	   'port': 27017, 'timezone': 'US/Eastern'}, auth=False)
 # mds = MDS({'host':http://xf23-ca.cs.nsls2.local, 'port': 7770})
 db = Broker(mds, FileStore({'host':'xf23id-ca.cs.nsls2.local',
 			    'port': 27017, 'database':'filestore'}))
-
+# RE.md_validator = ensure_proposal_id
 register_builtin_handlers(db.fs)
 RE.subscribe('all', mds.insert)
 
