@@ -35,7 +35,9 @@ EDGE_MAP = {'Ce_M': {'start': 875, 'step_size':1, 'num_pts': 40},
             'Cu_L': {'start': 920, 'step_size':1, 'num_pts': 40},
             'Al_L': {'start': 1548, 'step_size':1, 'num_pts': 40},
             'Ti_L': {'start': 450, 'step_size':1, 'num_pts': 25},
-            'Fe_L': {'start': 700, 'step_size':1, 'num_pts': 40}
+            'Fe_L': {'start': 700, 'step_size':1, 'num_pts': 40},
+            'C_K': {'start': 275, 'step_size':1, 'num_pts': 50},
+            'N_K': {'start': 400, 'step_size':1, 'num_pts': 40}
 }
 
 
