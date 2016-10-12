@@ -1,0 +1,52 @@
+{
+    "Al_L": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 1548
+    },
+    "Cu_L": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 920
+    },
+    "C_K": {
+        "num_pts": 50,
+        "step_size": 1,
+        "start": 275
+    },
+    "N_K": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 400
+    },
+    "O_K": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 525
+    },
+    "Ni_L": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 845
+    },
+    "Fe_L": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 700
+    },
+    "Ti_L": {
+        "num_pts": 25,
+        "step_size": 1,
+        "start": 450
+    },
+    "Zn_L": {
+        "num_pts": 50,
+        "step_size": 1,
+        "start": 1010
+    },
+    "Ce_M": {
+        "num_pts": 40,
+        "step_size": 1,
+        "start": 875
+    }
+}
