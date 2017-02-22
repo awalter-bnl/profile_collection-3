@@ -3,7 +3,8 @@ from ophyd import StatusBase
 import time
 from bluesky.spec_api import inner_spec_decorator, setup_plot, setup_livetable, _figure_name
 import bluesky as bs
-
+import builtins
+input = builtins.input
 
 def change_epu_flt_link(new_target):
     v = (yield from read(epu1.flt.input_pv))
@@ -19,8 +20,28 @@ class NormPlot(bs.callbacks.LivePlot):
     def event(self,doc):
         doc = dict(doc)
         doc['data'] = dict(doc['data'])
-        doc['data']['norm_intensity'] = doc['data']['sclr_ch4']/doc['data']['sclr_ch3']
+        try:
+            doc['data']['norm_intensity'] = doc['data']['sclr_ch4']/doc['data']['sclr_ch3']
+        except KeyError:
+            pass
         super().event(doc)
+
+
+class norm_plot(bs.callbacks.LivePlot):                            
+    def __init__(self, *args, func, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._doc_func = func
+        
+    def event(self,doc):
+        doc = self._doc_func(func)
+        super().event(doc)
+        
+def simple_norm(doc):
+    try:
+        doc.data['norm_intensity'] = doc.data['sclr_ch4']/doc.data['sclr_ch3']
+    except KeyError:
+        pass
+    return doc
 
 
 def setup_norm_plot(*, motors, gs):
@@ -46,7 +67,8 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     md = ChainMap(md, {'plan_args': {'dets': list(map(repr, dets)),
                                      'start': start,
                                      'stop': stop,
-                                     'velocity': velocity},
+                                     'velocity': velocity,
+                                     'deadband': deadband},
                        'plan_name': 'E_ramp'})
     # put the energy at the starting value
     yield from abs_set(pgm.energy, start, wait=True)
@@ -117,6 +139,7 @@ def E_ramp(start, stop, velocity, time=None, *, deadband=8, md=None):
                              deadband=deadband, md=md))
 
 
+#gs.SUB_FACTORIES['E_ramp'] = [setup_plot, setup_livetable]
 gs.SUB_FACTORIES['E_ramp'] = [setup_norm_plot, setup_livetable]
 
 

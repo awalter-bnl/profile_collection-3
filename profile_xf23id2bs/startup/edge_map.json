@@ -1,52 +1,128 @@
 {
-    "Al_L": {
-        "num_pts": 40,
-        "step_size": 1,
-        "start": 1548
-    },
-    "Cu_L": {
-        "num_pts": 40,
-        "step_size": 1,
-        "start": 920
-    },
-    "C_K": {
-        "num_pts": 50,
-        "step_size": 1,
-        "start": 275
-    },
-    "N_K": {
-        "num_pts": 40,
-        "step_size": 1,
-        "start": 400
-    },
-    "O_K": {
-        "num_pts": 40,
-        "step_size": 1,
-        "start": 525
-    },
     "Ni_L": {
-        "num_pts": 40,
-        "step_size": 1,
+        "stop": 885,
+        "deadband": 12,
+        "epu_table": 4,
+        "velocity": 0.2,
         "start": 845
     },
+    "Cu_L": {
+        "stop": 975,
+        "deadband": 12,
+        "epu_table": 4,
+        "velocity": 0.18,
+        "start": 925
+    },
+    "O_K": {
+        "stop": 560,
+        "deadband": 5,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 520
+    },
+    "O_K2": {
+        "stop": 560,
+        "deadband": 5,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 520
+    },
     "Fe_L": {
-        "num_pts": 40,
-        "step_size": 1,
+        "stop": 735,
+        "deadband": 12,
+        "epu_table": 4,
+        "velocity": 0.2,
         "start": 700
     },
-    "Ti_L": {
-        "num_pts": 25,
-        "step_size": 1,
-        "start": 450
+    "Al_K": {
+        "stop": 1592,
+        "deadband": 4,
+        "epu_table": 10,
+        "velocity": 0.3,
+        "start": 1552
     },
-    "Zn_L": {
-        "num_pts": 50,
-        "step_size": 1,
-        "start": 1010
+    "C_K": {
+        "stop": 315,
+        "deadband": 4,
+        "epu_table": 4,
+        "velocity": 0.2,
+        "start": 275
     },
     "Ce_M": {
-        "num_pts": 40,
-        "step_size": 1,
-        "start": 875
+        "stop": 920,
+        "deadband": 8,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 870
+    },
+    "Ce_M2": {
+        "stop": 920,
+        "deadband": 8,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 870
+    },
+    "Mo_M": {
+        "stop": 440,
+        "deadband": 8,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 380
+    },
+    "Mn_L": {
+        "stop": 662,
+        "deadband": 6,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 635
+    },
+    "Ga_L": {
+        "stop": 1185,
+        "deadband": 6,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 1110
+    },
+    "Si_K": {
+        "stop": 1880,
+        "deadband": 8,
+        "epu_table": 10,
+        "velocity": 0.5,
+        "start": 1840
+    },
+    "Rh_L": {
+        "stop": 1680,
+        "deadband": 8,
+        "epu_table": 10,
+        "velocity": 0.55,
+        "start": 1530
+    },
+    "Co_L": {
+        "stop": 810,
+        "deadband": 6,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 770
+    },
+    "Co_L2": {
+        "stop": 810,
+        "deadband": 6,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 770
+    },
+    "Zn_L": {
+        "stop": 1015,
+        "deadband": 12,
+        "epu_table": 4,
+        "velocity": 0.2,
+        "start": 1065
+    },
+    "Ti_L": {
+        "stop": 480,
+        "deadband": 5,
+        "epu_table": 4,
+        "velocity": 0.1,
+        "start": 450
     }
 }

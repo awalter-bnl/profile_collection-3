@@ -89,3 +89,8 @@ diag4_y = EpicsMotor('XF:23ID2-BI{Diag:4-Ax:Y}Mtr', name='diag4_y')
 # IOXAS manipulator
 
 ioxas_x = EpicsMotor('XF:23ID2-BI{IOXAS:1-Ax:X}Mtr', name='ioxas_x')
+
+# Vortex manipulator
+
+vortex_x = EpicsMotor('XF:23ID2-BI{Vortex:1-Ax:X}Mtr', name='vortex_x')
+

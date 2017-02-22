@@ -5,6 +5,7 @@ import bluesky.plans as bp
 import bluesky as bs
 import uuid
 from cycler import cycler
+import pandas as pd
 
 def relabel_fig(fig, new_label):
     fig.set_label(new_label)
@@ -34,51 +35,178 @@ _edge_fn = os.path.join(os.path.dirname(__file__), 'edge_map.json')
 with open(_edge_fn, 'rt') as fin:        
     EDGE_MAP = json.load(fin)
 
+def save_edge_map(edge_map, fname=None):
+    if fname is None:
+        fname = _edge_fn
+    with open(fname, 'wt') as fout:
+        json.dump(edge_map, fout, indent=4)
 
 
-SAMPLE_MAP = {'sample1': {'name': 'Ni_foil', 'pos': 252, 'interesting_edges': ['Ni_L']},
-              'sample2': {'name': 'Zn_foil', 'pos': 259, 'interesting_edges': ['Zn_L']},
-              'sample3': {'name': 'Cu_foil', 'pos': 267, 'interesting_edges': ['Cu_L']},
-              'sample4': {'name': 'Al_foil', 'pos': 276, 'interesting_edges': ['Al_L']},
-              'sample5': {'name': 'TiO2', 'pos': 282, 'interesting_edges': ['Ti_L', 'O_K']},
-              'sample6': {'name': 'Fe2O3', 'pos': 290, 'interesting_edges': ['Fe_L', 'O_K']},
+
+CONTAINER = None
+SAMPLE_MAP = {'sample1': {'name': 'AS-21_Spent', 'pos': 252, 'interesting_edges': []},
+              'sample2': {'name': 'AS-21', 'pos': 259, 'interesting_edges': []},
+              'sample3': {'name': 'AS-4-1_Spent', 'pos': 267, 'interesting_edges': []},
+              'sample4': {'name': '30CoCeO2', 'pos': 276, 'interesting_edges': ['Ce_M', 'Co_L2', 'O_K']},
+              'sample5': {'name': '8CoCeO2', 'pos': 282, 'interesting_edges': ['Ce_M2', 'Co_L', 'O_K']},
+              'sample6': {'name': '2CoCeO2', 'pos': 290, 'interesting_edges': ['Ce_M', 'Co_L', 'O_K2']},
 }
 
-#VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 850,
-#                            'mca.rois.roi4.hi_chan': 1000},
+DET_SETTINGS = {'O_K': {'samplegain': '2', 'sampledecade': '1 nA/V', 'aumeshgain': '5', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+              'Ce_M': {'samplegain': '2', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+              'Co_L': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+	      'Co_L2': {'samplegain': '5', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count':2},
+	      'Ce_M2': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+	      'O_K2': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '5', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+}
 
-#                   'Ni_L': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 800,
-#                            'mca.rois.roi4.hi_chan': 1000},
 
-#                   'Al_L': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 1300,
-#                            'mca.rois.roi4..hi_chan': 1600},
 
-#                   'Fe_L': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 700,
-#                            'mca.rois.roi4.hi_chan': 900},
+for k in SAMPLE_MAP:
+    samp = SAMPLE_MAP[k]
+    samp['sample_index'] = k
+    res = list(sample_reference.find(name=samp['name']))
+    if res:
+        sample_reference.update(query={'name': samp['name']},
+                                update=samp
+                                )
+    else:
+        sample_reference.create(**SAMPLE_MAP[k], container=CONTAINER)
+
+
+
+def load_samples(fname, container=CONTAINER):
+    f = pd.read_excel(fname)
+    SAMPLE_MAP2 = dict() 
+    loaded_excel = f.T.to_dict().values()
+    for entry in loaded_excel:
+        samp_idx = entry.pop('sample_index')
+#        entry['samplegain'] = str(entry['samplegain'])
+#        entry['aumeshgain'] = str(entry['aumeshgain'])
+        entry['interesting_edges'] = entry['interesting_edges'].split(', ')
+        entry['sample_index'] = samp_idx
+        SAMPLE_MAP2[samp_idx] = entry
+    for k in SAMPLE_MAP2:
+        samp = SAMPLE_MAP2[k]
+        res = list(sample_reference.find(name=samp['name']))
+        if res:
+            sample_reference.update(query={'name': samp['name']},
+                                    update=samp 
+	                            )
+        else:
+            sample_reference.create(**SAMPLE_MAP2[k], container=container)
+    return SAMPLE_MAP2
+
+def load_det_settings(fname, container=CONTAINER):
+    f = pd.read_excel(fname)
+    SAMPLE_MAP2 = dict()
+    loaded_excel = f.T.to_dict().values()
+    for entry in loaded_excel:
+        edge_idx = entry.pop('edge_index')
+        entry['samplegain'] = str(entry['samplegain'])
+        entry['aumeshgain'] = str(entry['aumeshgain'])
+        entry['edge_index'] = edge_idx
+        SAMPLE_MAP2[edge_idx] = entry
+#    for k in SAMPLE_MAP2:
+#        samp = SAMPLE_MAP2[k]
+#        res = list(sample_reference.find(name=samp['name']))
+#        if res:
+#            sample_reference.update(query={'name': samp['name']},
+#                                    update=samp
+#                                    )
+#        else:
+#            sample_reference.create(**SAMPLE_MAP2[k], container=container)
+    return SAMPLE_MAP2
+
+
+# SAMPLE_MAP = load_samples('/home/xf23id2/Desktop/mock_sample.xlsx', container=CONTAINER)
+
+VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 850,
+                            'mca.rois.roi4.hi_chan': 1000},
+
+                   'Ni_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 800,
+                            'mca.rois.roi4.hi_chan': 1000},
+
+                   'Al_K': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 1500,
+                            'mca.rois.roi4.hi_chan': 1900},
+
+                   'Fe_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 700,
+                            'mca.rois.roi4.hi_chan': 900},
                    
-#                   'Ti_L': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 400,
-#                            'mca.rois.roi4.hi_chan': 600},
+                   'Ti_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 400,
+                            'mca.rois.roi4.hi_chan': 600},
 
-#                   'O_K': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 450,
-#                            'mca.rois.roi4.hi_chan': 650},
+                   'O_K': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 500,
+                            'mca.rois.roi4.hi_chan': 700},
+                   
+                   'O_K2': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 500,
+                            'mca.rois.roi4.hi_chan': 700},
 
-#                   'Zn_L': {'vortex.peaking_time': 0.4,
-#                            'vortex.energy_threshold': 0.05,
-#                            'mca.rois.roi4.lo_chan': 900,
-#                            'mca.rois.roi4.hi_chan': 1150},
-#}
+
+                   'Zn_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 900,
+                            'mca.rois.roi4.hi_chan': 1150},
+
+                   'Mo_M': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 400,
+                            'mca.rois.roi4.hi_chan': 700},
+
+                   'Si_K': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 1800,
+                            'mca.rois.roi4.hi_chan': 2200},
+
+                   'Co_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 700,
+                            'mca.rois.roi4.hi_chan': 1000},
+
+                   'Co_L2': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 700,
+                            'mca.rois.roi4.hi_chan': 1000},
+
+                   'Ce_M': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 900,
+                            'mca.rois.roi4.hi_chan': 1100},
+
+
+                   'Ce_M2': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 900,
+                            'mca.rois.roi4.hi_chan': 1100},
+
+                   'Ga_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 1000,
+                            'mca.rois.roi4.hi_chan': 1300},
+                   'Rh_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 1600,
+                            'mca.rois.roi4.hi_chan': 1800},
+                   'Mn_L': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi4.lo_chan': 700,
+                            'mca.rois.roi4.hi_chan': 800},
+}
+
 
 
 def edge_ascan(sample_name, edge, md=None):
@@ -105,18 +233,26 @@ def edge_ascan(sample_name, edge, md=None):
    
     e_scan_params = EDGE_MAP[edge]
     # TODO configure the vortex
-    
+    det_settings = DET_SETTINGS[edge]    
     sample_props = SAMPLE_MAP[sample_name]
-    # sample_props = sample_manager.find(sample_name)
+#    sample_props = list(sample_manager.find(name=sample_name))
     local_md.update(sample_props)
     
-    init_group = 'ME_INIT_' + str(uuid.uuid4())
-    yield from bp.abs_set(ioxas_x, sample_props['pos'], group=init_group)
-    yield from bp.abs_set(pgm_energy, e_scan_params['start'], group=init_group)
+    # init_group = 'ME_INIT_' + str(uuid.uuid4())
+    yield from bp.abs_set(ioxas_x, sample_props['pos'], wait=True)
+    yield from bp.abs_set(feedback, 0, wait=True)
+    yield from bp.abs_set(pgm_energy, e_scan_params['start'], wait=True)
+    yield from bp.abs_set(epu1table, e_scan_params['epu_table'], wait=True)
+    yield from bp.abs_set(feedback, 1, wait=True)
+    yield from bp.abs_set(vortex_x, det_settings['vortex_pos'], wait=True)
+    yield from bp.abs_set(sample_sclr_gain, det_settings['samplegain'], wait=True)
+    yield from bp.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
+    yield from bp.abs_set(aumesh_sclr_gain, det_settings['aumeshgain'], wait=True)
+    yield from bp.abs_set(aumesh_sclr_decade, det_settings['aumeshdecade'], wait=True)
     yield from open_all_valves(all_valves)
-    yield from bp.wait(init_group)
-    
-    # TODO make this an ohypd obj!!!!!!
+    # yield from bp.wait(init_group)
+
+# TODO make this an ohypd obj!!!!!!
     #caput('XF:23IDA-PPS:2{PSh}Cmd:Opn-Cmd',1)
     yield from bp.sleep(2)
     # TODO make this an ohypd obj!!!!!!
@@ -124,41 +260,41 @@ def edge_ascan(sample_name, edge, md=None):
     #caput('XF:23IDA-OP:2{Mir:1A-Ax:FPit}Mtr_POS_SP',50)
     yield from bp.sleep(5)
 
-#    yield from bp.configure(vortex, VORTEX_SETTINGS[edge])
+    yield from bp.configure(vortex, VORTEX_SETTINGS[edge])
     lp_list = []
-#    for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
-#        fig = plt.figure(edge + ': ' + n)
-#        lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
-#        lp_list.append(lp)
-
-    class norm_plot(bs.callbacks.LivePlot):
-        def event(self,doc):
-            try:
-                doc.data['norm_intensity'] = doc.data['sclr_ch4']/doc.data['sclr_ch3']
-            except KeyError:
-                pass
-            super().event(doc)       
-
-    for n in ['sclr_ch4']:
+    for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
         fig = plt.figure(edge + ': ' + n)
-        # lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
-        lp = norm_plot('norm_intensity', 'pgm_energy_readback', fig=fig)
+        lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
         lp_list.append(lp)
 
+#    class norm_plot(bs.callbacks.LivePlot):
+#        def event(self,doc):
+#            try:
+#                doc.data['norm_intensity'] = doc.data['sclr_ch4']/doc.data['sclr_ch3']
+#            except KeyError:
+#                pass
+#            super().event(doc)       
+
+#    for n in ['sclr_ch4']:
+#        fig = plt.figure(edge + ': ' + n)
+        # lp = bs.callbacks.LivePlot(n, 'pgm_energy_readback', fig=fig)
+#        lp = norm_plot('norm_intensity', 'pgm_energy_readback', fig=fig)
+#        lp_list.append(lp)
+
     scan_kwargs = {'start': e_scan_params['start'],
-                   'stop': (e_scan_params['start'] + e_scan_params['step_size']*e_scan_params['num_pts']),
-                   'velocity': .1, # e_scan_params['velocity']
-                   # 'deadband': e_scan_params['deadband']
+                   'stop': e_scan_params['stop'],
+                   'velocity': e_scan_params['velocity'],
+                   'deadband': e_scan_params['deadband'],
                    'md': md}
     ret = []
-
-    res = yield from bp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
-                                                             'stop': save_csv})
-    if res is None:
-        res = []
-    ret.extend(res)
-    if not ret:
-        return ret
+    for j in range(det_settings['scan_count']):
+        res = yield from bp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
+                                                                 'stop': save_csv})
+        if res is None:
+            res = []
+        ret.extend(res)
+        if not ret:
+            return ret
 
     
     # hdr = db[ret[0]]
@@ -189,11 +325,13 @@ def multi_sample_edge(*, edge_list=None, sample_list=None):
         sample_list = list(SAMPLE_MAP)
     if edge_list is None:
         edge_list = list(EDGE_MAP)
-    edge_list = sorted(edge_list, key=lambda k: EDGE_MAP[k]['start'])        
+#    edge_list = sorted(edge_list, key=lambda k: EDGE_MAP[k]['start'])        
     cy = cycler('edge', edge_list) * cycler('sample_name', sample_list)
     for inp in cy:
         if pass_filter(**inp):
             yield from edge_ascan(**inp)
+    yield from bp.abs_set(valve_diag3_close, 1)
+    yield from bp.abs_set(valve_mir3_close, 1)
 
 def dummy_edge_scan(sample_name, edge, md=None):
     from bluesky.examples import det, motor, det2
@@ -207,7 +345,7 @@ def dummy_edge_scan(sample_name, edge, md=None):
     # TODO configure the vortex
     
     sample_props = SAMPLE_MAP[sample_name]
-    # sample_props = sample_manager.find(sample_name)
+    # sample_props = list(sample_manager.find(sample_name))[0]
     local_md.update(sample_props)
     lp_list = []
     for n in ['det', 'det2']:
@@ -221,9 +359,10 @@ def dummy_edge_scan(sample_name, edge, md=None):
 def save_csv(name, stop_doc):
     h = db[stop_doc['run_start']]
     df = db.get_table(h)
-    df['Norm'] = df['sclr_ch4'] / df['sclr_ch3']
+    df['Norm_TEY'] = df['sclr_ch4'] / df['sclr_ch3']
+    df['Norm_PFY'] = df['vortex_mca_rois_roi4_count'] / df['sclr_ch3']
     fn = '{name}_{edge}_{scan_id}.csv'.format(**h.start)
-    df.to_csv(fn,columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
+    df.to_csv(fn,columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'vortex_mca_rois_roi4_count', 'Norm_TEY', 'Norm_PFY'])
      
 
 #def save_csv_callback(name, doc):

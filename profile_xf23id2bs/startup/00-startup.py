@@ -12,7 +12,7 @@ with warnings.catch_warnings():
 from epics import caget, caput
 from filestore.fs import FileStore
 from metadatastore.mds import MDS
-
+from amostra.client.commands import SampleReference, ContainerReference
 # from metadataclient.mds import MDS
 
 # Subscribe metadatastore to documents.
@@ -41,7 +41,7 @@ from bluesky.global_state import gs, abort, stop, resume
 
 def ensure_proposal_id(md):
    if 'proposal_id' not in md:
-       raise ValueError("You forgot the proposal id.")
+       raise ValueError("Please run user_checkin() first")
 
 
 
@@ -51,10 +51,13 @@ import numpy as np
 RE = gs.RE  # convenience alias
 mds = MDS({'host':'xf23id-ca.cs.nsls2.local','database': 'datastore-23id2', 
 	   'port': 27017, 'timezone': 'US/Eastern'}, auth=False)
+sample_reference = SampleReference(host='xf23id-ca.cs.nsls2.local', port=7772)
+container_reference = ContainerReference(host='xf23id-ca.cs.nsls2.local', port=7772)
+
 # mds = MDS({'host':http://xf23-ca.cs.nsls2.local, 'port': 7770})
 db = Broker(mds, FileStore({'host':'xf23id-ca.cs.nsls2.local',
 			    'port': 27017, 'database':'filestore'}))
-# RE.md_validator = ensure_proposal_id
+#RE.md_validator = ensure_proposal_id
 register_builtin_handlers(db.fs)
 RE.subscribe('all', mds.insert)
 
