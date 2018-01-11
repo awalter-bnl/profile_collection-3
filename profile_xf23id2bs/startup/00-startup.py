@@ -57,7 +57,7 @@ container_reference = ContainerReference(host='xf23id-ca.cs.nsls2.local', port=7
 # mds = MDS({'host':http://xf23-ca.cs.nsls2.local, 'port': 7770})
 db = Broker(mds, FileStore({'host':'xf23id-ca.cs.nsls2.local',
 			    'port': 27017, 'database':'filestore'}))
-#RE.md_validator = ensure_proposal_id
+RE.md_validator = ensure_proposal_id
 register_builtin_handlers(db.fs)
 RE.subscribe('all', mds.insert)
 

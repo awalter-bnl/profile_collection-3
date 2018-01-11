@@ -1,9 +1,118 @@
 # from ophyd.controls import ProsilicaDetector, EpicsSignal, EpicsScaler
 from ophyd import EpicsScaler
+from ophyd.device import Component as C
+from ophyd.device import DynamicDeviceComponent as DDC
+from ophyd.scaler import _scaler_fields
+from ophyd.signal import waveform_to_string
 
 # CSX-2 Scalar
 
-sclr = EpicsScaler('XF:23ID2-ES{Sclr:1}', name='sclr')
+
+class DodgyEpicsSignal(EpicsSignal):
+
+    #def read(self):
+    #    return {self.name: {'value':self.get(), 'timestamp': self.timestamp}}
+
+    def get(self, *, as_string=None, connection_timeout=1.0, **kwargs):
+        '''Get the readback value through an explicit call to EPICS
+        Parameters
+        ----------
+        count : int, optional
+            Explicitly limit count for array data
+        as_string : bool, optional
+            Get a string representation of the value, defaults to as_string
+            from this signal, optional
+        as_numpy : bool
+            Use numpy array as the return type for array data.
+        timeout : float, optional
+            maximum time to wait for value to be received.
+            (default = 0.5 + log10(count) seconds)
+        use_monitor : bool, optional
+            to use value from latest monitor callback or to make an
+            explicit CA call for the value. (default: True)
+        connection_timeout : float, optional
+            If not already connected, allow up to `connection_timeout` seconds
+            for the connection to complete.
+        '''
+        # NOTE: in the future this should be improved to grab self._readback
+        #       instead, when all of the kwargs match up
+        if as_string is None:
+            as_string = self._string
+
+        with self._lock:
+            if not self._read_pv.connected:
+                if not self._read_pv.wait_for_connection(connection_timeout):
+                    raise TimeoutError('Failed to connect to %s' %
+                                       self._read_pv.pvname)
+            ret = None
+            while ret is None:
+                ret = self._read_pv.get(as_string=as_string, **kwargs)
+                if ret is None:
+                    print('Failed to get value, retrying to read {self}')
+
+        if ret is None:  
+            ret = np.nan
+        
+        if as_string:
+            return waveform_to_string(ret)
+
+        return ret
+
+    
+
+
+class DodgyEpicsScaler(Device):
+    '''SynApps Scaler Record interface'''
+
+    # tigger + trigger mode
+    count = C(DodgyEpicsSignal, '.CNT', trigger_value=1)
+    count_mode = C(DodgyEpicsSignal, '.CONT', string=True)
+
+    # delay from triggering to starting counting
+    delay = C(DodgyEpicsSignal, '.DLY')
+    auto_count_delay = C(DodgyEpicsSignal, '.DLY1')
+
+    # the data
+    channels = DDC(_scaler_fields(DodgyEpicsSignal, 'chan', '.S', range(1, 33)))
+    names = DDC(_scaler_fields(DodgyEpicsSignal, 'name', '.NM', range(1, 33)))
+
+    time = C(DodgyEpicsSignal, '.T')
+    freq = C(DodgyEpicsSignal, '.FREQ')
+
+    preset_time = C(DodgyEpicsSignal, '.TP')
+    auto_count_time = C(DodgyEpicsSignal, '.TP1')
+
+    presets = DDC(_scaler_fields(DodgyEpicsSignal, 'preset', '.PR', range(1, 33)))
+    gates = DDC(_scaler_fields(DodgyEpicsSignal, 'gate', '.G', range(1, 33)))
+
+    update_rate = C(DodgyEpicsSignal, '.RATE')
+    auto_count_update_rate = C(DodgyEpicsSignal, '.RAT1')
+
+    egu = C(DodgyEpicsSignal, '.EGU')
+
+    def __init__(self, prefix, *, read_attrs=None, configuration_attrs=None,
+                 name=None, parent=None, **kwargs):
+        if read_attrs is None:
+            read_attrs = ['channels', 'time']
+
+        if configuration_attrs is None:
+            configuration_attrs = ['preset_time', 'presets', 'gates',
+                                   'names', 'freq', 'auto_count_time',
+                                   'count_mode', 'delay',
+                                   'auto_count_delay', 'egu']
+
+        super().__init__(prefix, read_attrs=read_attrs,
+                         configuration_attrs=configuration_attrs,
+                         name=name, parent=parent, **kwargs)
+
+        self.stage_sigs.update([('count_mode', 0)])
+
+
+
+#sclr = EpicsScaler('XF:23ID2-ES{Sclr:1}', name='sclr')
+sclr = DodgyEpicsScaler('XF:23ID2-ES{Sclr:1}', name='sclr')
+
+
 for sig in sclr.channels.signal_names:
     getattr(sclr.channels, sig).name = 'sclr_' + sig.replace('an', '')
 sclr.channels.read_attrs = ['chan2', 'chan3', 'chan4']
