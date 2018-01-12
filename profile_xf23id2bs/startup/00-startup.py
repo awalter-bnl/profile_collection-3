@@ -76,7 +76,7 @@ def print_scan_ids(name, start_doc):
     print("Transient Scan ID: {0}".format(start_doc['scan_id']))
     print("Persistent Unique Scan ID: '{0}'".format(start_doc['uid']))
 
-RE.subscribe('start', print_scan_ids)
+RE.subscribe(print_scan_ids, 'start')
 
 from functools import partial
 from pyOlog import SimpleOlogClient
