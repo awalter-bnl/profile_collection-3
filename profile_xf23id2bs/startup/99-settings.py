@@ -2,7 +2,7 @@
 import os
 import json
 import bluesky.plans as bp
-import bluesky.plans_stubs as bps
+import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
 import uuid
 from cycler import cycler
