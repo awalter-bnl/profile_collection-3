@@ -1,20 +1,24 @@
-from bluesky.plans import *
+# this is already done in nslsii.configure_base but being explicit here
+import bluesky.plans as bp
+import bluesky.plan_stubs as bps
+import bluesky.preprocessors as bpp
+
 from ophyd import StatusBase
 import time
-from bluesky.spec_api import inner_spec_decorator, setup_plot, setup_livetable, _figure_name
+#from bluesky.spec_api import inner_spec_decorator, setup_plot, setup_livetable, _figure_name
 import bluesky as bs
 import builtins
 input = builtins.input
 
 def change_epu_flt_link(new_target):
-    v = (yield from read(epu1.flt.input_pv))
+    v = (yield from bps.read(epu1.flt.input_pv))
     if v is None:
         return
     n = epu1.flt.input_pv.name
     cur_pv = v[n]['value']
     pts = cur_pv.split(' ', maxsplit=1)
     new_pv = ' '.join([new_target] + pts[1:])
-    yield from abs_set(epu1.flt.input_pv, new_pv)
+    yield from bps.abs_set(epu1.flt.input_pv, new_pv)
 
 class NormPlot(bs.callbacks.LivePlot):
     def event(self,doc):
@@ -44,20 +48,21 @@ def simple_norm(doc):
     return doc
 
 
-def setup_norm_plot(*, motors, gs):
-    """Setup a LivePlot by inspecting motors and gs.
-    If motors is empty, use sequence number.
-    """
-    y_key = gs.PLOT_Y
-    if motors:
-        x_key = first_key_heuristic(list(motors)[0])
-        fig_name = _figure_name('BlueSky {} v {}'.format(y_key, x_key))
-        fig = plt.figure(fig_name)
-        return NormPlot(y_key, x_key, fig=fig)
-    else:
-        fig_name = _figure_name('BlueSky: {} v sequence number'.format(y_key))
-        fig = plt.figure(fig_name)
-        return NormPlot(y_key, fig=fig)
+#This is no longer supported. Define a LivePlot callback or use best effort callback
+#def setup_norm_plot(*, motors, gs):
+#    """Setup a LivePlot by inspecting motors and gs.
+#    If motors is empty, use sequence number.
+#    """
+#    y_key = gs.PLOT_Y
+#    if motors:
+#        x_key = first_key_heuristic(list(motors)[0])
+#        fig_name = _figure_name('BlueSky {} v {}'.format(y_key, x_key))
+#        fig = plt.figure(fig_name)
+#        return NormPlot(y_key, x_key, fig=fig)
+#    else:
+#        fig_name = _figure_name('BlueSky: {} v sequence number'.format(y_key))
+#        fig = plt.figure(fig_name)
+#        return NormPlot(y_key, fig=fig)
     
 
 def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
@@ -71,18 +76,18 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
                                      'deadband': deadband},
                        'plan_name': 'E_ramp'})
     # put the energy at the starting value
-    yield from abs_set(pgm.energy, start, wait=True)
+    yield from bps.abs_set(pgm.energy, start, wait=True)
 
-    yield from abs_set(pgm.fly.start_sig, start, wait=True)
-    yield from abs_set(pgm.fly.stop_sig, stop, wait=True)
-    yield from abs_set(pgm.fly.velocity, velocity, wait=True)
+    yield from bps.abs_set(pgm.fly.start_sig, start, wait=True)
+    yield from bps.abs_set(pgm.fly.stop_sig, stop, wait=True)
+    yield from bps.abs_set(pgm.fly.velocity, velocity, wait=True)
 
     # TODO do this with stage
     old_db = epu1.flt.output_deadband.get()
-    yield from abs_set(epu1.flt.output_deadband, deadband)
+    yield from bps.abs_set(epu1.flt.output_deadband, deadband)
 
     # get the old vlaue
-    v = (yield from read(epu1.flt.input_pv))
+    v = (yield from bps.read(epu1.flt.input_pv))
     if v is None:
         old_link = ''
     else:
@@ -92,17 +97,17 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     # define a clean up plan
     def clean_up():
         # move the energy setpoint to where the energy really is
-        yield from abs_set(pgm.energy, pgm.energy.position, wait=True)
+        yield from bps.abs_set(pgm.energy, pgm.energy.position, wait=True)
         # set the interpolator to look at what it was looking at before
         # the scan.  This should be the energy set point.
-        yield from abs_set(epu1.flt.input_pv, old_link, wait=True)
-        yield from abs_set(epu1.flt.output_deadband, old_db, wait=True)
+        yield from bps.abs_set(epu1.flt.input_pv, old_link, wait=True)
+        yield from bps.abs_set(epu1.flt.output_deadband, old_db, wait=True)
     
     # change to track the readout energy
     yield from change_epu_flt_link(pgm_energy.readback.pvname)
     
     def go_plan():
-        ret = (yield from abs_set(pgm.fly.fly_start, 1))
+        ret = (yield from bps.abs_set(pgm.fly.fly_start, 1))
         
         st = StatusBase()
         enum_map = pgm.fly.scan_status.describe()[pgm.fly.scan_status.name]['enum_strs']
@@ -131,35 +136,41 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     return (yield from finalize_wrapper(rp, clean_up()))
 
     
-def E_ramp(start, stop, velocity, time=None, *, deadband=8, md=None):
+# NOTE : This function has been changed to take DETS as an argument
+def E_ramp(DETS, start, stop, velocity, time=None, *, deadband=8, md=None):
+    '''
+        DETS: need to supply the detectors used
+    '''
     motors = [pgm.energy]
-    inner = inner_spec_decorator('E_ramp', time, motors)(_run_E_ramp)
+    # DEPRECATED
+    #inner = inner_spec_decorator('E_ramp', time, motors)(_run_E_ramp)
+    inner = _run_E_ramp
 
-    return (yield from inner(gs.DETS + [pgm.energy], start, stop, velocity, 
+    return (yield from inner(DETS + [pgm.energy], start, stop, velocity, 
                              deadband=deadband, md=md))
 
 
+# THIS is no longer supported
 #gs.SUB_FACTORIES['E_ramp'] = [setup_plot, setup_livetable]
-gs.SUB_FACTORIES['E_ramp'] = [setup_norm_plot, setup_livetable]
+#gs.SUB_FACTORIES['E_ramp'] = [setup_norm_plot, setup_livetable]
 
 
 def _epu_ramp(dets, start, stop):
     def go_plan():
-        return (yield from abs_set(epu1.gap, stop, wait=False))
+        return (yield from bps.abs_set(epu1.gap, stop, wait=False))
 
     def inner_plan():
         yield from trigger_and_read(dets)
 
-    yield from abs_set(epu1.gap, start, wait=True)
+    yield from bps.abs_set(epu1.gap, start, wait=True)
         
     return (yield from (ramp_plan(go_plan(), pgm.energy,
                                   inner_plan, period=None, md=md)))
 
 def fix_epu():
     # move the energy setpoint to where the energy really is
-    yield from abs_set(pgm.energy, pgm.energy.position, wait=True)
+    yield from bps.abs_set(pgm.energy, pgm.energy.position, wait=True)
     # set the interpolator to look at what it was looking at before
     # the scan.  This should be the energy set point.
-    yield from abs_set(epu1.flt.input_pv, 'XF:23ID2-OP{Mono}Enrgy-SP CP MS', wait=True)
-    yield from abs_set(epu1.flt.output_deadband, 0, wait=True)
-
+    yield from bps.abs_set(epu1.flt.input_pv, 'XF:23ID2-OP{Mono}Enrgy-SP CP MS', wait=True)
+    yield from bps.abs_set(epu1.flt.output_deadband, 0, wait=True)

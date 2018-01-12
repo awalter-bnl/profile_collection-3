@@ -2,7 +2,8 @@
 import os
 import json
 import bluesky.plans as bp
-import bluesky as bs
+import bluesky.plans_stubs as bps
+import bluesky.preprocessors as bpp
 import uuid
 from cycler import cycler
 import pandas as pd
@@ -11,10 +12,11 @@ def relabel_fig(fig, new_label):
     fig.set_label(new_label)
     fig.canvas.manager.set_window_title(fig.get_label())
 
-def multi_part_ascan(motor1, steps, motor2, asc_p):
+# NOTE : This now requires DETS as a list
+def multi_part_ascan(DETS, motor1, steps, motor2, asc_p):
     for d in steps:
-        yield from bp.abs_set(motor1, d, wait=True)
-        yield from bp.scan(gs.DETS, motor2, *asc_p)
+        yield from bps.abs_set(motor1, d, wait=True)
+        yield from bp.scan(DETS, motor2, *asc_p)
 
 def open_all_valves(valve_list):
     '''Open all the listed valves
@@ -26,10 +28,10 @@ def open_all_valves(valve_list):
         
     '''
     for v in valve_list:
-        yield from bp.abs_set(v, 1, group='valve_set')
-    yield from bp.wait('valve_set')
+        yield from bps.abs_set(v, 1, group='valve_set')
+    yield from bps.wait('valve_set')
     # sleep might not be needed
-    yield from bp.sleep(2)
+    yield from bps.sleep(2)
 
 _edge_fn = os.path.join(os.path.dirname(__file__), 'edge_map.json')
 with open(_edge_fn, 'rt') as fin:        
@@ -239,28 +241,28 @@ def edge_ascan(sample_name, edge, md=None):
     local_md.update(sample_props)
     
     # init_group = 'ME_INIT_' + str(uuid.uuid4())
-    yield from bp.abs_set(ioxas_x, sample_props['pos'], wait=True)
-    yield from bp.abs_set(feedback, 0, wait=True)
-    yield from bp.abs_set(pgm_energy, e_scan_params['start'], wait=True)
-    yield from bp.abs_set(epu1table, e_scan_params['epu_table'], wait=True)
-    yield from bp.abs_set(feedback, 1, wait=True)
-    yield from bp.abs_set(vortex_x, det_settings['vortex_pos'], wait=True)
-    yield from bp.abs_set(sample_sclr_gain, det_settings['samplegain'], wait=True)
-    yield from bp.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
-    yield from bp.abs_set(aumesh_sclr_gain, det_settings['aumeshgain'], wait=True)
-    yield from bp.abs_set(aumesh_sclr_decade, det_settings['aumeshdecade'], wait=True)
+    yield from bps.abs_set(ioxas_x, sample_props['pos'], wait=True)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(pgm_energy, e_scan_params['start'], wait=True)
+    yield from bps.abs_set(epu1table, e_scan_params['epu_table'], wait=True)
+    yield from bps.abs_set(feedback, 1, wait=True)
+    yield from bps.abs_set(vortex_x, det_settings['vortex_pos'], wait=True)
+    yield from bps.abs_set(sample_sclr_gain, det_settings['samplegain'], wait=True)
+    yield from bps.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
+    yield from bps.abs_set(aumesh_sclr_gain, det_settings['aumeshgain'], wait=True)
+    yield from bps.abs_set(aumesh_sclr_decade, det_settings['aumeshdecade'], wait=True)
     yield from open_all_valves(all_valves)
     # yield from bp.wait(init_group)
 
 # TODO make this an ohypd obj!!!!!!
     #caput('XF:23IDA-PPS:2{PSh}Cmd:Opn-Cmd',1)
-    yield from bp.sleep(2)
+    yield from bps.sleep(2)
     # TODO make this an ohypd obj!!!!!!
     # TODO ask stuart
     #caput('XF:23IDA-OP:2{Mir:1A-Ax:FPit}Mtr_POS_SP',50)
-    yield from bp.sleep(5)
+    yield from bps.sleep(5)
 
-    yield from bp.configure(vortex, VORTEX_SETTINGS[edge])
+    yield from bps.configure(vortex, VORTEX_SETTINGS[edge])
     lp_list = []
     for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
         fig = plt.figure(edge + ': ' + n)
@@ -288,7 +290,7 @@ def edge_ascan(sample_name, edge, md=None):
                    'md': md}
     ret = []
     for j in range(det_settings['scan_count']):
-        res = yield from bp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
+        res = yield from bpp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
                                                                  'stop': save_csv})
         if res is None:
             res = []
@@ -300,14 +302,14 @@ def edge_ascan(sample_name, edge, md=None):
     # hdr = db[ret[0]]
     # redo_count = how_many_more_times_to_take_data(hdr)
     # for j in range(redo_count):
-    #     res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+    #     res = yield from bpp.subs_wrapper(ascan(*scan_args, md=md), lp)
     #     ret.extend(res)
 
 
     # new_count_time = compute_new_count_time(hdr, old_count_time)
     # if new_count_time != old_count_time:
-    #     yield from bp.configure(vortex, {'count_time': new_count_time})
-    #     res = yield from bp.subs_wrapper(ascan(*scan_args, md=md), lp)
+    #     yield from bps.configure(vortex, {'count_time': new_count_time})
+    #     res = yield from bpp.subs_wrapper(ascan(*scan_args, md=md), lp)
     #     ret.extend(res)
         
     return ret
@@ -330,8 +332,8 @@ def multi_sample_edge(*, edge_list=None, sample_list=None):
     for inp in cy:
         if pass_filter(**inp):
             yield from edge_ascan(**inp)
-    yield from bp.abs_set(valve_diag3_close, 1)
-    yield from bp.abs_set(valve_mir3_close, 1)
+    yield from bps.abs_set(valve_diag3_close, 1)
+    yield from bps.abs_set(valve_mir3_close, 1)
 
 def dummy_edge_scan(sample_name, edge, md=None):
     from bluesky.examples import det, motor, det2
@@ -352,7 +354,7 @@ def dummy_edge_scan(sample_name, edge, md=None):
         fig = plt.figure(edge + ': ' + n)
         lp = bs.callbacks.LivePlot(n, 'motor', fig=fig)
         lp_list.append(lp)
-    yield from bp.subs_wrapper(bp.relative_scan([det, det2], motor, -5, 5, 15, md=md),
+    yield from bpp.subs_wrapper(bp.relative_scan([det, det2], motor, -5, 5, 15, md=md),
                                lp_list)
     
 
