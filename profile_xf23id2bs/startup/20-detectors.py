@@ -113,7 +113,7 @@ class DodgyEpicsScaler(Device):
 sclr = DodgyEpicsScaler('XF:23ID2-ES{Sclr:1}', name='sclr')
 
 
-for sig in sclr.channels.signal_names:
+for sig in sclr.channels.component_names:
     getattr(sclr.channels, sig).name = 'sclr_' + sig.replace('an', '')
 sclr.channels.read_attrs = ['chan2', 'chan3', 'chan4']
 
