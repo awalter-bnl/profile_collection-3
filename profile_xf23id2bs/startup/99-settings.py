@@ -83,9 +83,7 @@ def load_samples(fname, container=CONTAINER):
     loaded_excel = f.T.to_dict().values()
     for entry in loaded_excel:
         samp_idx = entry.pop('sample_index')
-#        entry['samplegain'] = str(entry['samplegain'])
-#        entry['aumeshgain'] = str(entry['aumeshgain'])
-        entry['interesting_edges'] = entry['interesting_edges'].split(', ')
+        entry['interesting_edges'] = str(entry['interesting_edges']).split(', ')
         entry['sample_index'] = samp_idx
         SAMPLE_MAP2[samp_idx] = entry
     for k in SAMPLE_MAP2:
@@ -120,13 +118,22 @@ def load_det_settings(fname, container=CONTAINER):
 #            sample_reference.create(**SAMPLE_MAP2[k], container=container)
     return SAMPLE_MAP2
 
+def load_scan_parameters(fname, container=CONTAINER):
+    f = pd.read_excel(fname)
+    SAMPLE_MAP2 = dict()
+    loaded_excel = f.T.to_dict().values()
+    for entry in loaded_excel:
+        edge_idx = entry.pop('edge_index')
+        entry['edge_index'] = edge_idx
+        SAMPLE_MAP2[edge_idx] = entry
+    return SAMPLE_MAP2
 
 # SAMPLE_MAP = load_samples('/home/xf23id2/Desktop/mock_sample.xlsx', container=CONTAINER)
 
 VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
-                            'mca.rois.roi4.lo_chan': 850,
-                            'mca.rois.roi4.hi_chan': 1000},
+                            'mca.rois.roi4.lo_chan': 900,
+                            'mca.rois.roi4.hi_chan': 1200},
 
                    'Ni_L': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
@@ -152,6 +159,11 @@ VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
                             'mca.rois.roi4.lo_chan': 500,
                             'mca.rois.roi4.hi_chan': 700},
+
+                   'O_K_IPFY': {'vortex.peaking_time': 0.4,
+                            'vortex.energy_threshold': 0.05,
+                            'mca.rois.roi3.lo_chan': 500,
+                            'mca.rois.roi3.hi_chan': 700},
                    
                    'O_K2': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
@@ -251,18 +263,23 @@ def edge_ascan(sample_name, edge, md=None):
     yield from bps.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
     yield from bps.abs_set(aumesh_sclr_gain, det_settings['aumeshgain'], wait=True)
     yield from bps.abs_set(aumesh_sclr_decade, det_settings['aumeshdecade'], wait=True)
-    yield from open_all_valves(all_valves)
+ #   yield from open_all_valves(all_valves)
     # yield from bp.wait(init_group)
 
 # TODO make this an ohypd obj!!!!!!
     #caput('XF:23IDA-PPS:2{PSh}Cmd:Opn-Cmd',1)
-    yield from bps.sleep(2)
+#   yield from bp.sleep(2)
     # TODO make this an ohypd obj!!!!!!
     # TODO ask stuart
     #caput('XF:23IDA-OP:2{Mir:1A-Ax:FPit}Mtr_POS_SP',50)
     yield from bps.sleep(5)
 
     yield from bps.configure(vortex, VORTEX_SETTINGS[edge])
+    yield from bps.sleep(2)
+    yield from bps.abs_set(vortex.mca.rois.roi4.lo_chan, det_settings['vortex_low'], wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi4.hi_chan, det_settings['vortex_high'], wait=True)
+
+
     lp_list = []
     for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
         fig = plt.figure(edge + ': ' + n)
@@ -289,9 +306,16 @@ def edge_ascan(sample_name, edge, md=None):
                    'deadband': e_scan_params['deadband'],
                    'md': md}
     ret = []
-    for j in range(det_settings['scan_count']):
+    for j in range(e_scan_params['scan_count']):
+        tmp_pos = sample_props['pos'] + (j-((e_scan_params['scan_count']-1)/2))*e_scan_params['intervals']
+        yield from bps.abs_set(ioxas_x, tmp_pos, wait=True) 
+        yield from bps.abs_set(pgm_energy, e_scan_params['start'], wait=True)
+        yield from open_all_valves(all_valves)
         res = yield from bpp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
                                                                  'stop': save_csv})
+        yield from bp.abs_set(valve_diag3_close, 1, wait=True)
+        yield from bp.abs_set(valve_mir3_close, 1, wait=True)
+        yield from bp.sleep(5)
         if res is None:
             res = []
         ret.extend(res)

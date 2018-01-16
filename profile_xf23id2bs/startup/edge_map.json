@@ -16,22 +16,22 @@
     "O_K": {
         "stop": 560,
         "deadband": 5,
-        "epu_table": 4,
-        "velocity": 0.1,
+        "epu_table": 6,
+        "velocity": 0.05,
         "start": 520
     },
     "O_K2": {
         "stop": 560,
         "deadband": 5,
-        "epu_table": 4,
+        "epu_table": 6,
         "velocity": 0.1,
         "start": 520
     },
     "Fe_L": {
         "stop": 735,
         "deadband": 12,
-        "epu_table": 4,
-        "velocity": 0.2,
+        "epu_table": 6,
+        "velocity": 0.05,
         "start": 700
     },
     "Al_K": {
@@ -72,8 +72,8 @@
     "Mn_L": {
         "stop": 662,
         "deadband": 6,
-        "epu_table": 4,
-        "velocity": 0.1,
+        "epu_table": 6,
+        "velocity": 0.05,
         "start": 635
     },
     "Ga_L": {

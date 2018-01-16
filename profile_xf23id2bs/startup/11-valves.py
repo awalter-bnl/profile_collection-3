@@ -32,3 +32,6 @@ valve_appes = Valve('XF:23ID2-VA{APPES-GV:3}', name='valve_appes')
 
 valve_diag3_close = EpicsSignal('XF:23ID2-VA{Diag:03-GV:1}Cmd:Cls-Cmd', name='valve_diag3_close')
 valve_mir3_close = EpicsSignal('XF:23ID2-VA{Mir:3-GV:1}Cmd:Cls-Cmd', name='valve_mir3_close')
+valve_diag3_open = EpicsSignal('XF:23ID2-VA{Diag:03-GV:1}Cmd:Opn-Cmd', name='valve_diag3_open')
+valve_mir3_open = EpicsSignal('XF:23ID2-VA{Mir:3-GV:1}Cmd:Opn-Cmd', name='valve_mir3_open')
+

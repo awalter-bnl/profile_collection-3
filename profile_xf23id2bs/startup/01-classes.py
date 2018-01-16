@@ -12,3 +12,4 @@ class Vortex(Device):
     def trigger_signals(self):
         return [self.mca.erase_start]
 
+
