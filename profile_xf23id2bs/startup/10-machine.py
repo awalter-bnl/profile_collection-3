@@ -64,7 +64,7 @@ epu1 = EPU1('XF:23ID-ID{EPU:1', name='epu1')
 epu2 = EPU2('XF:23ID-ID{EPU:2', name='epu2')
 
 # Front End Slits (Primary Slits)
-    
+
 # fe_xc = PVPositioner('FE:C23A-OP{Slt:12-Ax:X}center',
 #                      readback='FE:C23A-OP{Slt:12-Ax:X}t2.D',
 #                      stop='FE:C23A-CT{MC:1}allstop',

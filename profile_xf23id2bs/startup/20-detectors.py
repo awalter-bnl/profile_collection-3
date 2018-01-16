@@ -50,15 +50,15 @@ class DodgyEpicsSignal(EpicsSignal):
                 if ret is None:
                     print('Failed to get value, retrying to read {self}')
 
-        if ret is None:  
+        if ret is None:
             ret = np.nan
-        
+
         if as_string:
             return waveform_to_string(ret)
 
         return ret
 
-    
+
 
 
 class DodgyEpicsScaler(Device):

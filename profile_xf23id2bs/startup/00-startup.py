@@ -8,8 +8,8 @@ config = {
          'class' : 'MDS',
          'config' : {
             'host':'xf23id-ca.cs.nsls2.local',
-            'database': 'datastore-23id2', 
-	        'port': 27017, 
+            'database': 'datastore-23id2',
+            'port': 27017,
             'timezone': 'US/Eastern',
             'auth' : False}
         },
@@ -18,7 +18,7 @@ config = {
         'class' : 'Registry',
         'config' : {
             'host':'xf23id-ca.cs.nsls2.local',
-			'port': 27017,
+            'port': 27017,
             'database':'filestore'
         }
     },
@@ -30,19 +30,9 @@ import nslsii
 nslsii.configure_base(get_ipython().user_ns, db)
 
 
-# Make ophyd listen to pyepics.
-from ophyd import setup_ophyd
-setup_ophyd()
-
-
 # TODO not need this
 from epics import caget, caput
 from amostra.client.commands import SampleReference, ContainerReference
-# from metadataclient.mds import MDS
-
-# Subscribe metadatastore to documents.
-# If this is removed, data is not saved to metadatastore.
-# RE.subscribe_lossless('all', metadatastore.commands.insert)
 
 
 # Optional: set any metadata that rarely changes.
@@ -115,6 +105,8 @@ cb = logbook_cb_factory(configured_logbook_func, desc_template=desc_template,
                         desc_dispatch=desc_dispatch)
 nslsii.configure_olog(get_ipython().user_ns, callback=cb)
 
-#this is no longer supported by bluesky
-class gs:
-    DETS=[]
+# WARNING: gs. is no longer supported by bluesky
+# if needed, you may uncomment these lines and define your own gs at your own
+# risk
+#class gs:
+    #DETS=[]

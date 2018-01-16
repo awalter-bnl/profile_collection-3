@@ -25,7 +25,7 @@ def open_all_valves(valve_list):
     ----------
     valve_list : sequence
         The valves to open
-        
+
     '''
     for v in valve_list:
         yield from bps.abs_set(v, 1, group='valve_set')
@@ -34,7 +34,7 @@ def open_all_valves(valve_list):
     yield from bps.sleep(2)
 
 _edge_fn = os.path.join(os.path.dirname(__file__), 'edge_map.json')
-with open(_edge_fn, 'rt') as fin:        
+with open(_edge_fn, 'rt') as fin:
     EDGE_MAP = json.load(fin)
 
 def save_edge_map(edge_map, fname=None):
@@ -57,9 +57,9 @@ SAMPLE_MAP = {'sample1': {'name': 'AS-21_Spent', 'pos': 252, 'interesting_edges'
 DET_SETTINGS = {'O_K': {'samplegain': '2', 'sampledecade': '1 nA/V', 'aumeshgain': '5', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
               'Ce_M': {'samplegain': '2', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
               'Co_L': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
-	      'Co_L2': {'samplegain': '5', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count':2},
-	      'Ce_M2': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
-	      'O_K2': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '5', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+          'Co_L2': {'samplegain': '5', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count':2},
+          'Ce_M2': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '2', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
+          'O_K2': {'samplegain': '1', 'sampledecade': '1 nA/V', 'aumeshgain': '5', 'aumeshdecade': '1 nA/V', 'vortex_pos': -220, 'scan_count': 2},
 }
 
 
@@ -79,7 +79,7 @@ for k in SAMPLE_MAP:
 
 def load_samples(fname, container=CONTAINER):
     f = pd.read_excel(fname)
-    SAMPLE_MAP2 = dict() 
+    SAMPLE_MAP2 = dict()
     loaded_excel = f.T.to_dict().values()
     for entry in loaded_excel:
         samp_idx = entry.pop('sample_index')
@@ -91,8 +91,8 @@ def load_samples(fname, container=CONTAINER):
         res = list(sample_reference.find(name=samp['name']))
         if res:
             sample_reference.update(query={'name': samp['name']},
-                                    update=samp 
-	                            )
+                                    update=samp
+                                )
         else:
             sample_reference.create(**SAMPLE_MAP2[k], container=container)
     return SAMPLE_MAP2
@@ -149,7 +149,7 @@ VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
                             'mca.rois.roi4.lo_chan': 700,
                             'mca.rois.roi4.hi_chan': 900},
-                   
+
                    'Ti_L': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
                             'mca.rois.roi4.lo_chan': 400,
@@ -164,7 +164,7 @@ VORTEX_SETTINGS = {'Cu_L': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
                             'mca.rois.roi3.lo_chan': 500,
                             'mca.rois.roi3.hi_chan': 700},
-                   
+
                    'O_K2': {'vortex.peaking_time': 0.4,
                             'vortex.energy_threshold': 0.05,
                             'mca.rois.roi4.lo_chan': 500,
@@ -244,14 +244,14 @@ def edge_ascan(sample_name, edge, md=None):
     local_md = {'plan_name': 'edge_ascan'}
     local_md['edge'] = edge
     md = ChainMap(md, local_md)
-   
+
     e_scan_params = EDGE_MAP[edge]
     # TODO configure the vortex
-    det_settings = DET_SETTINGS[edge]    
+    det_settings = DET_SETTINGS[edge]
     sample_props = SAMPLE_MAP[sample_name]
 #    sample_props = list(sample_manager.find(name=sample_name))
     local_md.update(sample_props)
-    
+
     # init_group = 'ME_INIT_' + str(uuid.uuid4())
     yield from bps.abs_set(ioxas_x, sample_props['pos'], wait=True)
     yield from bps.abs_set(feedback, 0, wait=True)
@@ -292,7 +292,7 @@ def edge_ascan(sample_name, edge, md=None):
 #                doc.data['norm_intensity'] = doc.data['sclr_ch4']/doc.data['sclr_ch3']
 #            except KeyError:
 #                pass
-#            super().event(doc)       
+#            super().event(doc)
 
 #    for n in ['sclr_ch4']:
 #        fig = plt.figure(edge + ': ' + n)
@@ -308,7 +308,7 @@ def edge_ascan(sample_name, edge, md=None):
     ret = []
     for j in range(e_scan_params['scan_count']):
         tmp_pos = sample_props['pos'] + (j-((e_scan_params['scan_count']-1)/2))*e_scan_params['intervals']
-        yield from bps.abs_set(ioxas_x, tmp_pos, wait=True) 
+        yield from bps.abs_set(ioxas_x, tmp_pos, wait=True)
         yield from bps.abs_set(pgm_energy, e_scan_params['start'], wait=True)
         yield from open_all_valves(all_valves)
         res = yield from bpp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
@@ -322,7 +322,7 @@ def edge_ascan(sample_name, edge, md=None):
         if not ret:
             return ret
 
-    
+
     # hdr = db[ret[0]]
     # redo_count = how_many_more_times_to_take_data(hdr)
     # for j in range(redo_count):
@@ -335,7 +335,7 @@ def edge_ascan(sample_name, edge, md=None):
     #     yield from bps.configure(vortex, {'count_time': new_count_time})
     #     res = yield from bpp.subs_wrapper(ascan(*scan_args, md=md), lp)
     #     ret.extend(res)
-        
+
     return ret
 
 #def how_many_more_times_to_take_data(hdr):
@@ -351,7 +351,7 @@ def multi_sample_edge(*, edge_list=None, sample_list=None):
         sample_list = list(SAMPLE_MAP)
     if edge_list is None:
         edge_list = list(EDGE_MAP)
-#    edge_list = sorted(edge_list, key=lambda k: EDGE_MAP[k]['start'])        
+#    edge_list = sorted(edge_list, key=lambda k: EDGE_MAP[k]['start'])
     cy = cycler('edge', edge_list) * cycler('sample_name', sample_list)
     for inp in cy:
         if pass_filter(**inp):
@@ -366,10 +366,10 @@ def dummy_edge_scan(sample_name, edge, md=None):
         md = {}
     local_md = {'plan_name': 'edge_ascan'}
     md = ChainMap(md, local_md)
-   
+
     e_scan_params = EDGE_MAP[edge]
     # TODO configure the vortex
-    
+
     sample_props = SAMPLE_MAP[sample_name]
     # sample_props = list(sample_manager.find(sample_name))[0]
     local_md.update(sample_props)
@@ -380,7 +380,7 @@ def dummy_edge_scan(sample_name, edge, md=None):
         lp_list.append(lp)
     yield from bpp.subs_wrapper(bp.relative_scan([det, det2], motor, -5, 5, 15, md=md),
                                lp_list)
-    
+
 
 def save_csv(name, stop_doc):
     h = db[stop_doc['run_start']]
@@ -389,16 +389,16 @@ def save_csv(name, stop_doc):
     df['Norm_PFY'] = df['vortex_mca_rois_roi4_count'] / df['sclr_ch3']
     fn = '{name}_{edge}_{scan_id}.csv'.format(**h.start)
     df.to_csv(fn,columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'vortex_mca_rois_roi4_count', 'Norm_TEY', 'Norm_PFY'])
-     
+
 
 #def save_csv_callback(name, doc):
-    
+
 #    if name != 'stop':
 #        return
 #    print(doc)
 #    start_doc = doc['run_start']
 #    hdr = db[start_doc]
-#    if 
+#    if
 #    table = db.get_table(hdr)
 
 #    fn_template = '/tmp/scan_{name}.csv'

@@ -31,15 +31,15 @@ class NormPlot(bs.callbacks.LivePlot):
         super().event(doc)
 
 
-class norm_plot(bs.callbacks.LivePlot):                            
+class norm_plot(bs.callbacks.LivePlot):
     def __init__(self, *args, func, **kwargs):
         super().__init__(*args, **kwargs)
         self._doc_func = func
-        
+
     def event(self,doc):
         doc = self._doc_func(func)
         super().event(doc)
-        
+
 def simple_norm(doc):
     try:
         doc.data['norm_intensity'] = doc.data['sclr_ch4']/doc.data['sclr_ch3']
@@ -63,7 +63,7 @@ def simple_norm(doc):
 #        fig_name = _figure_name('BlueSky: {} v sequence number'.format(y_key))
 #        fig = plt.figure(fig_name)
 #        return NormPlot(y_key, fig=fig)
-    
+
 
 def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     if md is None:
@@ -102,13 +102,13 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
         # the scan.  This should be the energy set point.
         yield from bps.abs_set(epu1.flt.input_pv, old_link, wait=True)
         yield from bps.abs_set(epu1.flt.output_deadband, old_db, wait=True)
-    
+
     # change to track the readout energy
     yield from change_epu_flt_link(pgm_energy.readback.pvname)
-    
+
     def go_plan():
         ret = (yield from bps.abs_set(pgm.fly.fly_start, 1))
-        
+
         st = StatusBase()
         enum_map = pgm.fly.scan_status.describe()[pgm.fly.scan_status.name]['enum_strs']
         def _done_cb(value, old_value, **kwargs):
@@ -117,7 +117,7 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
             if old_value != value and value == 'Ready':
                 st._finished()
                 pgm.fly.scan_status.clear_sub(_done_cb)
-                
+
         if ret is not None:
             pgm.fly.scan_status.subscribe(_done_cb, run=False)
         else:
@@ -132,10 +132,10 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     print(md)
     rp = ramp_plan(go_plan(), pgm.energy,
                    inner_plan, period=None, md=md)
-        
+
     return (yield from finalize_wrapper(rp, clean_up()))
 
-    
+
 # NOTE : This function has been changed to take DETS as an argument
 def E_ramp(DETS, start, stop, velocity, time=None, *, deadband=8, md=None):
     '''
@@ -146,7 +146,7 @@ def E_ramp(DETS, start, stop, velocity, time=None, *, deadband=8, md=None):
     #inner = inner_spec_decorator('E_ramp', time, motors)(_run_E_ramp)
     inner = _run_E_ramp
 
-    return (yield from inner(DETS + [pgm.energy], start, stop, velocity, 
+    return (yield from inner(DETS + [pgm.energy], start, stop, velocity,
                              deadband=deadband, md=md))
 
 
@@ -163,7 +163,7 @@ def _epu_ramp(dets, start, stop):
         yield from trigger_and_read(dets)
 
     yield from bps.abs_set(epu1.gap, start, wait=True)
-        
+
     return (yield from (ramp_plan(go_plan(), pgm.energy,
                                   inner_plan, period=None, md=md)))
 
