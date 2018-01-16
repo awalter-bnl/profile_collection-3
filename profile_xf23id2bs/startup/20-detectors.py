@@ -106,6 +106,7 @@ class DodgyEpicsScaler(Device):
                          name=name, parent=parent, **kwargs)
 
         self.stage_sigs.update([('count_mode', 0)])
+        self.hints = {'fields': ['sclr_ch2', 'sclr_ch3', 'sclr_ch4']}
 
 
 
@@ -119,6 +120,9 @@ sclr.channels.read_attrs = ['chan2', 'chan3', 'chan4']
 
 # Saturn interface for Vortex MCA detector
 vortex = Vortex('XF:23ID2-ES{Vortex}', name='vortex')
+vortex.hints = {'fields': ['vortex_mca_rois_roi4_count',
+                           'vortex_mca_rois_roi3_count']}
+
 #vortex.read_attrs = ['mca.spectrum', 'mca.preset_live_time']
 #vortex.read_attrs = ['mca.spectrum', 'mca.preset_live_time', 'mca.rois']
 vortex.read_attrs = ['mca.spectrum', 'mca.rois']

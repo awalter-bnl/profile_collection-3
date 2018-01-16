@@ -2,6 +2,7 @@
 import bluesky.plans as bp
 import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
+from collections import ChainMap
 
 from ophyd import StatusBase
 import time
@@ -74,7 +75,8 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
                                      'stop': stop,
                                      'velocity': velocity,
                                      'deadband': deadband},
-                       'plan_name': 'E_ramp'})
+                       'plan_name': 'E_ramp',
+                       'motors': [pgm.energy.name]})
     # put the energy at the starting value
     yield from bps.abs_set(pgm.energy, start, wait=True)
 
@@ -133,7 +135,7 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
     rp = ramp_plan(go_plan(), pgm.energy,
                    inner_plan, period=None, md=md)
 
-    return (yield from finalize_wrapper(rp, clean_up()))
+    return (yield from bpp.finalize_wrapper(rp, clean_up()))
 
 
 # NOTE : This function has been changed to take DETS as an argument

@@ -28,6 +28,8 @@ db = Broker.from_config(config)
 
 import nslsii
 nslsii.configure_base(get_ipython().user_ns, db)
+# make sure Best Effort Callback does not plot the baseline readings
+bec.noplot_streams.append('pgm_energy_monitor')
 
 
 # TODO not need this
@@ -36,14 +38,12 @@ from amostra.client.commands import SampleReference, ContainerReference
 
 
 # Optional: set any metadata that rarely changes.
-# RE.md['beamline_id'] = 'YOUR_BEAMLINE_HERE'
 
 # convenience imports
 
 def ensure_proposal_id(md):
    if 'proposal_id' not in md:
        raise ValueError("Please run user_checkin() first")
-
 
 
 from time import sleep
@@ -60,13 +60,6 @@ RE.md['group'] = ''
 RE.md['config'] = {}
 RE.md['beamline_id'] = 'CSX-2'
 
-
-# Add a callback that prints scan IDs at the start of each scan.
-def print_scan_ids(name, start_doc):
-    print("Transient Scan ID: {0}".format(start_doc['scan_id']))
-    print("Persistent Unique Scan ID: '{0}'".format(start_doc['uid']))
-
-RE.subscribe(print_scan_ids, 'start')
 
 from functools import partial
 from pyOlog import SimpleOlogClient
