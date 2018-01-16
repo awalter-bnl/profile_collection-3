@@ -313,9 +313,9 @@ def edge_ascan(sample_name, edge, md=None):
         yield from open_all_valves(all_valves)
         res = yield from bpp.subs_wrapper(E_ramp(**scan_kwargs), {'all': lp_list,
                                                                  'stop': save_csv})
-        yield from bp.abs_set(valve_diag3_close, 1, wait=True)
-        yield from bp.abs_set(valve_mir3_close, 1, wait=True)
-        yield from bp.sleep(5)
+        yield from bps.abs_set(valve_diag3_close, 1, wait=True)
+        yield from bps.abs_set(valve_mir3_close, 1, wait=True)
+        yield from bps.sleep(5)
         if res is None:
             res = []
         ret.extend(res)

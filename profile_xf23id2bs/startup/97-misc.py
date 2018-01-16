@@ -190,10 +190,13 @@ def find_sample():
     #gs.PLOT_Y = 'vortex_mca_rois_roi2_count'
 #    mov(vortex.mca.rois.roi2.lo_chan, 1400)
 #    mov(vortex.mca.rois.roi2.hi_chan, 2000)
-    mov(pgm_energy, 932)
-    sleep(2)
-    RE(ascan(ioxas_x, 245, 295, 250))
-    sleep(2)
+    old_hints = vortex.hints
+    vortex.hints = {'fields': ['vortex_mca_rois_roi2_count']}
+    yield from bps.mov(pgm_energy, 932)
+    yield from bps.sleep(2)
+    yield from bp.scan([vortex], ioxas_x, 245, 295, 250)
+    yield from bps.sleep(2)
+    vortex.hints = old_hints
     #gs.TABLE_COLS.remove('vortex_mca_rois_roi2_count')
     #gs.PLOT_Y = 'vortex_mca_rois_roi4_count'
 

@@ -139,16 +139,16 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
 
 
 # NOTE : This function has been changed to take DETS as an argument
-def E_ramp(DETS, start, stop, velocity, time=None, *, deadband=8, md=None):
+def E_ramp(dets, start, stop, velocity, time=None, *, deadband=8, md=None):
     '''
-        DETS: need to supply the detectors used
+        dets: need to supply the detectors used
     '''
     motors = [pgm.energy]
     # DEPRECATED
     #inner = inner_spec_decorator('E_ramp', time, motors)(_run_E_ramp)
     inner = _run_E_ramp
 
-    return (yield from inner(DETS + [pgm.energy], start, stop, velocity,
+    return (yield from inner(dets + [pgm.energy], start, stop, velocity,
                              deadband=deadband, md=md))
 
 
