@@ -134,17 +134,23 @@ def plot_raw_tey(scanid1,scanid2,label):
                 df1.plot(x = 'pgm_energy_readback', y = 'sclr_ch4', label = str(i), ax=label)
 
 
-def XAS_scan(e_start, e_finish, velocity, deadband):
-    dets = [sclr, vortex, norm_ch4, ring_curr]
-    #dets = [sclr, norm_ch4, ring_curr]
-    #sclr.hints = {'fields':['sclr_ch3','sclr_ch4']}
-    vortex.hints = {'fields':['vortex_mca_rois_roi2_count','vortex_mca_rois_roi3_count','vortex_mca_rois_roi4_count']}
+def XAS_scan(e_start, e_finish, velocity, deadband, inc_vortex = False ):
+    if inc_vortex == True:
+        for channel in ['mca.rois.roi2.count','mca.rois.roi3.count', 'mca.rois.roi4.count']:
+            getattr(vortex, channel).kind = 'hinted'    
+            dets = [sclr, vortex, norm_ch4, ring_curr]
+    else:
+         dets = [sclr, norm_ch4, ring_curr]
+
+    for channel in ['channels.chan3','channels.chan4']:
+        getattr(sclr, channel).kind = 'hinted'
+
     yield from bps.mov(pgm_energy, e_start)
     yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
     
 def epu_gap_scans():
     dets=[sclr, ring_curr]
-    sclr.hints={'fields':['sclr_ch2']}
+    sclr.channels.chan2.kind = 'hinted'
     yield from bps.mov(diag3_y, 6)
 
    # for ene_val in range(250, 1251, 50):
@@ -201,7 +207,8 @@ def epu_gap_scans():
 def nexafs_pey(e_start, e_finish):
     # Set the detectors, because, YOLO
     dets = [sclr, norm_ch4, ring_curr]
-    sclr.hints = {'fields':['sclr_ch3', 'sclr_ch4']}
+    for channel in ['channels.chan3','channels.chan4']:
+        getattr(sclr, channel).kind = 'hinted'   
 
     #turn off feedback before moving energy
     # caput('XF:23ID2-OP{FBck}Sts:FB-Sel',0)
@@ -273,13 +280,21 @@ def find_sample():
     #gs.PLOT_Y = 'vortex_mca_rois_roi2_count'
 #    mov(vortex.mca.rois.roi2.lo_chan, 1400)
 #    mov(vortex.mca.rois.roi2.hi_chan, 2000)
-    old_hints = vortex.hints
-    vortex.hints = {'fields': ['vortex_mca_rois_roi2_count']}
+    old_hints = save_hint_state(vortex)
+    vortex.mca.rois.roi2.count.kind = 'hinted' 
     yield from bps.mov(pgm_energy, 540)
     yield from bps.sleep(2)
     yield from bp.scan([vortex], ioxas_x, 245, 295, 250)
     yield from bps.sleep(2)
-    vortex.hints = old_hints
+    restore_hint_state(vortex, old_hints)
     #gs.TABLE_COLS.remove('vortex_mca_rois_roi2_count')
     #gs.PLOT_Y = 'vortex_mca_rois_roi4_count'
+
+def save_hint_state(dev):
+    return {c: getattr(dev, c).kind for c in dev.read_attrs}
+
+def restore_hint_state(dev, prev_state):
+    for channel, state in prev_state.items():
+        getattr(dev, channel).kind = state
+
 

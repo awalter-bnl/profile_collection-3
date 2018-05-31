@@ -106,7 +106,9 @@ class DodgyEpicsScaler(Device):
                          name=name, parent=parent, **kwargs)
 
         self.stage_sigs.update([('count_mode', 0)])
-        self.hints = {'fields': ['sclr_ch2', 'sclr_ch3', 'sclr_ch4']}
+        
+        for channel in ['channels.chan2','channels.chan3','channels.chan4']:
+            getattr(self, channel).kind = 'hinted'
 
 
 
@@ -120,8 +122,9 @@ sclr.channels.read_attrs = ['chan2', 'chan3', 'chan4']
 
 # Saturn interface for Vortex MCA detector
 vortex = Vortex('XF:23ID2-ES{Vortex}', name='vortex')
-vortex.hints = {'fields': ['vortex_mca_rois_roi4_count',
-                           'vortex_mca_rois_roi3_count']}
+for channel in ['mca.rois.roi4.count','mca.rois.roi3.count']:
+    getattr(vortex, channel).kind = 'hinted'
+
 
 #vortex.read_attrs = ['mca.spectrum', 'mca.preset_live_time']
 #vortex.read_attrs = ['mca.spectrum', 'mca.preset_live_time', 'mca.rois']
@@ -135,6 +138,7 @@ vortex.configuration_attrs = ['vortex.peaking_time', 'vortex.energy_threshold', 
 #gs.TABLE_COLS = ['vortex_mca_rois_roi4_count']; gs.PLOT_Y = 'vortex_mca_rois_roi4_count'
 
 ring_curr = EpicsSignal('XF:23ID-SR{}I-I', name='ring_curr')
+ring_curr.kind = 'normal'
 norm_ch4 = EpicsSignal('XF:23ID2-ES{Sclr:1}_calc5.VAL', name='norm_ch4')
 
 DETS = [sclr, norm_ch4, ring_curr]
