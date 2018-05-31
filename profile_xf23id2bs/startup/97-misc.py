@@ -24,15 +24,13 @@ def save_xas_csv(first_id, last_id):
         df = db[scanid].table()
         df['Norm'] = df['sclr_ch4']/df['sclr_ch3']
         #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
-        df.to_csv('~/Adhunt/N2_filter_testing/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'vortex_mca_rois_roi4_count', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
+        df.to_csv('~/User_Data/Hunt/Prop_302802/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'vortex_mca_rois_roi2_count', 'vortex_mca_rois_roi3_count', 'vortex_mca_rois_roi4_count', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
 
 def save_xas_csv_short(first_id, last_id):
         for scanid in range(first_id,last_id+1,1):
                 df = db.get_table(db[scanid])
                 #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
-                df.to_csv('~/Yildiz_Group_XAS/Jiayue_Oct2017/Scan_%d.csv' % scanid, columns=['time', 'pgm_energy_readback', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'vortex_mca_rois_roi4_count'])
-
-
+                df.to_csv('~/User_Data/Quackenbush_XAS/Scan_%d.csv' % scanid, columns=['time', 'pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'norm_ch4', 'ring_curr'])
 
 
 def save_xas_csv_all(first_id, last_id):
@@ -41,6 +39,17 @@ def save_xas_csv_all(first_id, last_id):
 #                df['Norm'] = df['sclr_ch4']/df['sclr_ch3']
                 #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
                 df.to_csv('~/User_Data/Schroeder/Nov2017/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'ioxas_x', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'vortex_mca_rois_roi3_count', 'vortex_mca_rois_roi4_count'], index=False)
+
+
+def liveplot_photodiode():
+     sclr.hints = {'fields': ['sclr_ch2']} 
+
+def liveplot_xas():
+     sclr.hints = {'fields': ['sclr_ch4']} 
+
+def liveplot_aumesh():
+     sclr.hints = {'fields': ['sclr_ch3']} 
+
 
 
 def plot_norm_trans(scanid1,scanid2,normid,label):
@@ -58,7 +67,7 @@ def plot_norm_async_tey(scanid1,scanid2,normid,label):
         dfn = db.get_table(db[normid])
         for i in range (scanid1, scanid2+1):
                 df1 = db.get_table(db[i])
-                df1['Norm'] = df1['sclr_ch4']/dfn['sclr_ch2']
+                df1['Norm'] = df1['norm_ch4']/dfn['norm_ch4']
                 df1.plot(x = 'pgm_energy_readback', y = 'Norm', label = str(i), ax=label)
 
 def plot_norm_async_pfy(scanid1,scanid2,normid,label):
@@ -84,6 +93,14 @@ def plot_norm_pfy(scanid1,scanid2,label):
         for i in range (scanid1, scanid2+1):
                 df1 = db.get_table(db[i])
                 df1['Norm'] = df1['vortex_mca_rois_roi4_count']/df1['sclr_ch3']
+                df1.plot(x = 'pgm_energy_readback', y = 'Norm', label = str(i), ax=label)
+
+def plot_norm_pfy_ROI2(scanid1,scanid2,label):
+        plt.figure(label)
+        label = plt.gca()
+        for i in range (scanid1, scanid2+1):
+                df1 = db.get_table(db[i])
+                df1['Norm'] = df1['vortex_mca_rois_roi2_count']/df1['sclr_ch3']
                 df1.plot(x = 'pgm_energy_readback', y = 'Norm', label = str(i), ax=label)
 
 def plot_norm_ipfy(scanid1,scanid2,label):
@@ -117,8 +134,74 @@ def plot_raw_tey(scanid1,scanid2,label):
                 df1.plot(x = 'pgm_energy_readback', y = 'sclr_ch4', label = str(i), ax=label)
 
 
+def XAS_scan(e_start, e_finish, velocity, deadband):
+    dets = [sclr, vortex, norm_ch4, ring_curr]
+    #dets = [sclr, norm_ch4, ring_curr]
+    #sclr.hints = {'fields':['sclr_ch3','sclr_ch4']}
+    vortex.hints = {'fields':['vortex_mca_rois_roi2_count','vortex_mca_rois_roi3_count','vortex_mca_rois_roi4_count']}
+    yield from bps.mov(pgm_energy, e_start)
+    yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
+    
+def epu_gap_scans():
+    dets=[sclr, ring_curr]
+    sclr.hints={'fields':['sclr_ch2']}
+    yield from bps.mov(diag3_y, 6)
 
-def nexafs_pey(dets, e_start, e_finish):
+   # for ene_val in range(250, 1251, 50):
+    #    yield from bps.mov(pgm_energy, ene_val)
+     #   yield from bps.sleep(10)
+     #   yield from bp.rel_scan(dets, epu1.gap, -2, 2, 80)
+
+    #for ene_val2 in range(1300, 1651, 50):
+    #    yield from bps.mov(pgm_energy, ene_val2)
+    #    yield from bps.sleep(10)
+    #    yield from bp.rel_scan(dets, epu1.gap, -3, 3, 120)
+
+    #caput('XF:23ID-ID{EPU:1}Val:Table-Sel',7)
+    #yield from bps.sleep(10)
+    #yield from bps.mov(pgm_energy, 750)
+
+    #for ene_val3 in range(750, 1951, 50):
+    #    yield from bps.mov(pgm_energy, ene_val3)
+    #    yield from bps.sleep(10)
+    #    yield from bp.rel_scan(dets, epu1.gap, -1.5, 1.5, 80)
+
+    yield from bps.mov(epu1.phase, 24.6)
+    yield from bps.sleep(10)
+    caput('XF:23ID-ID{EPU:1}Val:Table-Sel',5)
+    yield from bps.sleep(10)
+    yield from bps.mov(pgm_energy, 450)
+    
+   
+    for ene_val_v in range(450, 1251, 50):
+        yield from bps.mov(pgm_energy, ene_val_v)
+        yield from bps.sleep(10)
+        yield from bp.rel_scan(dets, epu1.gap, -2, 2, 80)
+
+    for ene_val_v2 in range(1300, 1651, 50):
+        yield from bps.mov(pgm_energy, ene_val_v2)
+        yield from bps.sleep(10)
+        yield from bp.rel_scan(dets, epu1.gap, -3, 3, 120)
+
+    caput('XF:23ID-ID{EPU:1}Val:Table-Sel',9)
+    yield from bps.sleep(10)
+    yield from bps.mov(pgm_energy, 1200)
+
+    for ene_val_v3 in range(1200, 1951, 50):
+        yield from bps.mov(pgm_energy, ene_val_v3)
+        yield from bps.sleep(10)
+        yield from bp.rel_scan(dets, epu1.gap, -1.5, 1.5, 80)
+    
+    yield from bps.mov(pgm_energy, 1200)
+    yield from bps.mov(epu1.phase, 0)
+    caput('XF:23ID-ID{EPU:1}Val:Table-Sel',6)
+    yield from bps.mov(diag3_y, 46)    
+
+
+def nexafs_pey(e_start, e_finish):
+    # Set the detectors, because, YOLO
+    dets = [sclr, norm_ch4, ring_curr]
+    sclr.hints = {'fields':['sclr_ch3', 'sclr_ch4']}
 
     #turn off feedback before moving energy
     # caput('XF:23ID2-OP{FBck}Sts:FB-Sel',0)
@@ -149,7 +232,7 @@ def nexafs_pey(dets, e_start, e_finish):
 
     #to start the scan
     #RE(ascan(pgm_energy, e_start, e_finish, e_points), group='nexafs')
-    yield from E_ramp(dets, e_start, e_finish, 0.1, deadband=6)
+    yield from E_ramp(dets, e_start, e_finish, 0.05, deadband=6)
 
     # caput('XF:23ID2-OP{FBck}Sts:FB-Sel',0)
     yield from bps.mov(mirror_feedback, 0)
@@ -192,7 +275,7 @@ def find_sample():
 #    mov(vortex.mca.rois.roi2.hi_chan, 2000)
     old_hints = vortex.hints
     vortex.hints = {'fields': ['vortex_mca_rois_roi2_count']}
-    yield from bps.mov(pgm_energy, 932)
+    yield from bps.mov(pgm_energy, 540)
     yield from bps.sleep(2)
     yield from bp.scan([vortex], ioxas_x, 245, 295, 250)
     yield from bps.sleep(2)
