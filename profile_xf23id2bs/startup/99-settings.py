@@ -78,7 +78,7 @@ for k in SAMPLE_MAP:
 
 
 def load_samples(fname, container=CONTAINER):
-    f = pd.read_excel(fname)
+    f = pd.read_excel(fname).dropna()
     SAMPLE_MAP2 = dict()
     loaded_excel = f.T.to_dict().values()
     for entry in loaded_excel:
@@ -98,7 +98,7 @@ def load_samples(fname, container=CONTAINER):
     return SAMPLE_MAP2
 
 def load_det_settings(fname, container=CONTAINER):
-    f = pd.read_excel(fname)
+    f = pd.read_excel(fname).dropna()
     SAMPLE_MAP2 = dict()
     loaded_excel = f.T.to_dict().values()
     for entry in loaded_excel:
@@ -119,7 +119,7 @@ def load_det_settings(fname, container=CONTAINER):
     return SAMPLE_MAP2
 
 def load_scan_parameters(fname, container=CONTAINER):
-    f = pd.read_excel(fname)
+    f = pd.read_excel(fname).dropna()
     SAMPLE_MAP2 = dict()
     loaded_excel = f.T.to_dict().values()
     for entry in loaded_excel:
