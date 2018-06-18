@@ -85,6 +85,7 @@ slt2 = EpicsMotor('XF:23ID2-OP{Slt:2-Ax:Y}Mtr', name='slt2')
 diag1_y = EpicsMotor('XF:23ID2-BI{Diag:1-Ax:Y}Mtr', name='diag1_y')
 diag3_y = EpicsMotor('XF:23ID2-BI{Diag:3-Ax:Y}Mtr', name='diag3_y')
 diag4_y = EpicsMotor('XF:23ID2-BI{Diag:4-Ax:Y}Mtr', name='diag4_y')
+au_mesh = EpicsMotor('XF:23ID2-BI{AuMesh:1-Ax:Y}Mtr', name='au_mesh')
 
 # IOXAS manipulator
 

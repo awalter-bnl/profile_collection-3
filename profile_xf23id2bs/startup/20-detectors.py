@@ -133,13 +133,14 @@ vortex.read_attrs = ['mca.spectrum', 'mca.rois']
 vortex.mca.read_attrs.append('rois')
 vortex.mca.rois.read_attrs = ['roi0','roi1','roi2','roi3','roi4']
 vortex.vortex.energy_threshold.tolerance = .005
-vortex.configuration_attrs = ['vortex.peaking_time', 'vortex.energy_threshold', 'mca.rois.roi4.hi_chan',
+vortex.configuration_attrs = ['vortex.peaking_time', 'mca.preset_real_time', 'vortex.energy_threshold', 'mca.rois.roi4.hi_chan',
                               'mca.rois.roi4.lo_chan']
 #gs.TABLE_COLS = ['vortex_mca_rois_roi4_count']; gs.PLOT_Y = 'vortex_mca_rois_roi4_count'
 
 ring_curr = EpicsSignal('XF:23ID-SR{}I-I', name='ring_curr')
 ring_curr.kind = 'normal'
 norm_ch4 = EpicsSignal('XF:23ID2-ES{Sclr:1}_calc5.VAL', name='norm_ch4')
+sclr_time = EpicsSignal('XF:23ID2-ES{Sclr:1}.TP', name='sclr_time')
 
 DETS = [sclr, norm_ch4, ring_curr]
 DETS_V =  [sclr, norm_ch4, ring_curr, vortex]
@@ -150,6 +151,11 @@ sample_sclr_decade = EpicsSignal('XF:23ID2-ES{CurrAmp:3}Gain:Decade-SP', name='s
 aumesh_sclr_gain = EpicsSignal('XF:23ID2-ES{CurrAmp:2}Gain:Val-SP', name='aumesh_sclr_gain', string=True)
 aumesh_sclr_decade = EpicsSignal('XF:23ID2-ES{CurrAmp:2}Gain:Decade-SP', name='aumesh_sclr_decade', string=True)
 
+pd_sclr_gain = EpicsSignal('XF:23ID2-ES{CurrAmp:1}Gain:Val-SP', name='pd_sclr_gain', string=True)
+pd_sclr_decade = EpicsSignal('XF:23ID2-ES{CurrAmp:1}Gain:Decade-SP', name='pd_sclr_decade', string=True)
+
+
 epu1table = EpicsSignal('XF:23ID-ID{EPU:1}Val:Table-Sel', name='epu1table')
+epu1offset = EpicsSignal('XF:23ID-ID{EPU:1-FLT}Val:InpOff1-SP', name='epu1offset')
 
 feedback = EpicsSignal('XF:23ID2-OP{FBck}Sts:FB-Sel', name='feedback')

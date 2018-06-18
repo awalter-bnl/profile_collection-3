@@ -70,6 +70,13 @@ def plot_norm_async_tey(scanid1,scanid2,normid,label):
                 df1['Norm'] = df1['norm_ch4']/dfn['norm_ch4']
                 df1.plot(x = 'pgm_energy_readback', y = 'Norm', label = str(i), ax=label)
 
+def plot_sample_map(scanid1,scanid2,label):
+        plt.figure(label)
+        label = plt.gca()
+        for i in range (scanid1, scanid2+1):
+                df1 = db.get_table(db[i])
+                df1.plot(x = 'ioxas_x', y = 'sclr_ch4', label = str(i), ax=label)
+
 def plot_norm_async_pfy(scanid1,scanid2,normid,label):
         plt.figure(label)
         label = plt.gca()
@@ -282,9 +289,9 @@ def find_sample():
 #    mov(vortex.mca.rois.roi2.hi_chan, 2000)
     old_hints = save_hint_state(vortex)
     vortex.mca.rois.roi2.count.kind = 'hinted' 
-    yield from bps.mov(pgm_energy, 540)
+    yield from bps.mov(pgm_energy, 1860)
     yield from bps.sleep(2)
-    yield from bp.scan([vortex], ioxas_x, 245, 295, 250)
+    yield from bp.scan([sclr], ioxas_x, 245, 295, 250)
     yield from bps.sleep(2)
     restore_hint_state(vortex, old_hints)
     #gs.TABLE_COLS.remove('vortex_mca_rois_roi2_count')
