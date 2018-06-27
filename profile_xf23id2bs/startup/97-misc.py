@@ -22,9 +22,10 @@ def user_checkout():
 def save_xas_csv(first_id, last_id):
     for scanid in range(first_id,last_id+1,1):
         df = db[scanid].table()
-        df['Norm'] = df['sclr_ch4']/df['sclr_ch3']
+#        df['Norm'] = df['sclr_ch4']/df['sclr_ch3']
         #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
-        df.to_csv('~/Adhunt/N2_filter_testing/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'vortex_mca_rois_roi4_count', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
+#        df.to_csv('~/User_Data/Hunt/Prop_302802/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'vortex_mca_rois_roi2_count', 'vortex_mca_rois_roi3_count', 'vortex_mca_rois_roi4_count', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
+        df.to_csv('~/User_Data/Rodriguez/June2018/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'norm_ch4'], index=False)
 
 def save_xas_csv_short(first_id, last_id):
         for scanid in range(first_id,last_id+1,1):
@@ -127,9 +128,21 @@ def plot_raw_tey(scanid1,scanid2,label):
                 df1.plot(x = 'pgm_energy_readback', y = 'sclr_ch4', label = str(i), ax=label)
 
 
-def XAS_scan(e_start, e_finish, velocity, deadband):
-    dets = [sclr, norm_ch4, ring_curr]
-    sclr.hints = {'fields':['sclr_ch2', 'sclr_ch3', 'sclr_ch4']}
+def XAS_scan(e_start, e_finish, velocity, deadband, inc_vortex = True):
+    if inc_vortex == True:
+        for channel in ['mca.rois.roi2.count','mca.rois.roi3.count','mca.rois.roi4.count']:
+            getattr(vortex, channel).kind = 'hinted'
+        for channel in ['mca.rois.roi2.count','mca.rois.roi3.count']:
+            getattr(vortex, channel).kind = 'normal'
+            dets = [sclr, vortex, norm_ch4, ring_curr]
+    else:
+         dets = [sclr, norm_ch4, ring_curr]
+
+    for channel in ['channels.chan3','channels.chan4']:
+        getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan2']:
+        getattr(sclr, channel).kind = 'normal'
+
     yield from bps.mov(pgm_energy, e_start)
     yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
     
