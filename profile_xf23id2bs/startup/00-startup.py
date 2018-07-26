@@ -30,6 +30,13 @@ import nslsii
 nslsii.configure_base(get_ipython().user_ns, db)
 # make sure Best Effort Callback does not plot the baseline readings
 bec.noplot_streams.append('pgm_energy_monitor')
+bec.disable_plots()
+
+from bluesky.callbacks.zmq import Publisher
+pub = Publisher('xf23id-ca:5577')
+RE.subscribe(pub)
+
+
 
 
 # TODO not need this
