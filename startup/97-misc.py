@@ -1,5 +1,7 @@
 from time import sleep
 import numpy as np
+from matplotlib import pyplot as plt
+
 
 def user_checkin():
     proposal_id = input('Enter your proposal number:  ')
@@ -19,21 +21,31 @@ def user_checkout():
     del RE.md['endstation']
     del RE.md['cycle']
 
-def save_xas_csv(first_id, last_id):
+def save_xas_csv(first_id, last_id, exptype = 'normal'):
     for scanid in range(first_id,last_id+1,1):
-        df = db[scanid].table()
-#        df['Norm'] = df['sclr_ch4']/df['sclr_ch3']
-        #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
-#        df.to_csv('~/User_Data/Hunt/Prop_302802/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'vortex_mca_rois_roi2_count', 'vortex_mca_rois_roi3_count', 'vortex_mca_rois_roi4_count', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'Norm'], index=False)
-        df.to_csv('~/Documents/Yildiz/LSM_Co/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'time', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'norm_ch4'], index=False)
+        if exptype == 'normal':
+            df = db[scanid].table()
+            df.to_csv('~/User_Data/Vanloonerjee_2018_December/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'time', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'norm_ch4', 'vortex_mca_rois_roi3_count', 'vortex_mca_rois_roi4_count'], index=False)
+#            df.to_csv('~/Documents/Yildiz/LSM_Co/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'time', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'norm_ch4'], index=False)
+        elif exptype == 'PD':
+            df = db[scanid].table()
+            df.to_csv('~/User_Data/Felix_And_Friends/PD_Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4'], index=False)
+#            df.to_csv('~/Documents/Yildiz/LSM_Co/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'time', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'norm_ch4'], index=False)
+        else:
+            print('Unknown file type')
+
 
 def save_xas_csv_short(first_id, last_id):
         for scanid in range(first_id,last_id+1,1):
                 df = db.get_table(db[scanid])
                 #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
-                df.to_csv('~/Documents/Yildiz/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'norm_ch4', 'vortex_mca_rois_roi4_count', 'vortex_mca_rois_roi3_count'])
+                df.to_csv('~/User_Data/Rodriguez/November2018/Scan_%d.csv' % scanid, columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'norm_ch4', 'vortex_mca_rois_roi4_count', 'vortex_mca_rois_roi3_count'])
 
-
+def save_xas_csv_time(first_id, last_id):
+        for scanid in range(first_id,last_id+1,1):
+                df = db.get_table(db[scanid])
+                #fn = 'csv_data/Scan_{scan_id}.csv'.format(db[scanid].start)
+                df.to_csv('~/User_Data/Felix_And_Friends/Time_Scan_%d.csv' % scanid, columns=['time', 'sclr_ch3', 'sclr_ch4', 'vortex_mca_rois_roi4_count', 'vortex_mca_rois_roi3_count'])
 
 def save_xas_csv_all(first_id, last_id):
         for scanid in range(first_id,last_id+1,1):
@@ -80,6 +92,27 @@ def plot_norm_async_pfy(scanid1,scanid2,normid,label):
                 df1 = db.get_table(db[i])
                 df1['Norm2'] = df1['vortex_mca_rois_roi4_count']/dfn['sclr_ch2']
                 df1.plot(x = 'pgm_energy_readback', y = 'Norm2', label = str(i), ax=label)
+
+def plot_PD_EnergyScan(scanid1,scanid2,label):
+    plt.figure(label)
+    label = plt.gca()
+    for i in range (scanid1, scanid2+1):
+        df1 = db.get_table(db[i])
+        df1.plot(x = 'pgm_energy_readback', y = 'sclr_ch2', label = str(i), ax=label)
+
+def plot_PD_TimeScan(scanid1,scanid2,label):
+    plt.figure(label)
+    label = plt.gca()
+    for i in range (scanid1, scanid2+1):
+        df1 = db.get_table(db[i])
+        df1.plot(x = 'time', y = 'sclr_ch2', label = str(i), ax=label)
+
+def plot_PFY_TimeScan(scanid1,scanid2,label):
+    plt.figure(label)
+    label = plt.gca()
+    for i in range (scanid1, scanid2+1):
+        df1 = db.get_table(db[i])
+        df1.plot(x = 'time', y = 'vortex_mca_rois_roi4_count', label = str(i), ax=label)
 
 def plot_norm_tey(scanid1,scanid2,label):
     plt.figure(label)
@@ -147,6 +180,20 @@ def plot_raw_tey(scanid1,scanid2,label):
                 df1 = db.get_table(db[i])
                 df1.plot(x = 'pgm_energy_readback', y = 'sclr_ch4', label = str(i), ax=label)
 
+def plot_sample_map_tey(scanid1,scanid2,label):
+        plt.figure(label)
+        label = plt.gca()
+        for i in range (scanid1, scanid2+1):
+                df1 = db.get_table(db[i])
+                df1.plot(x = 'ioxas_x', y = 'sclr_ch4', label = str(i), ax=label)
+
+def plot_sample_map_pfy(scanid1,scanid2,label):
+        plt.figure(label)
+        label = plt.gca()
+        for i in range (scanid1, scanid2+1):
+                df1 = db.get_table(db[i])
+                df1.plot(x = 'appes_y', y = 'vortex_mca_rois_roi4_count', label = str(i), ax=label)
+
 
 def XAS_scan(e_start, e_finish, velocity, deadband, inc_vortex = True):
     if inc_vortex == True:
@@ -176,29 +223,171 @@ def PD_scan(e_start, e_finish, velocity, deadband):
 
     yield from bps.mov(pgm_energy, e_start)
     yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
+
+
+def PD_count():
+    for channel in ['channels.chan3','channels.chan2']:
+        getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan4', 'channels.chan3']:
+        getattr(sclr, channel).kind = 'normal'
+
+    dets = [sclr, ring_curr]
+
+    yield from bp.count(dets, num=None, delay=10)
+
+def Aumesh_count():
+    for channel in ['channels.chan3','channels.chan2']:
+        getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan4', 'channels.chan2']:
+        getattr(sclr, channel).kind = 'normal'
+
+    dets = [sclr, ring_curr]
+
+    yield from bp.count(dets, num=None)
+
+def Felix_and_Friends(e_start, e_finish, numpoints):
+    dets = [sclr, vortex, norm_ch4, ring_curr]
+ 
+    for channel in ['mca.rois.roi2.count','mca.rois.roi3.count','mca.rois.roi4.count']:
+        getattr(vortex, channel).kind = 'hinted'
+    for channel in ['mca.rois.roi2.count','mca.rois.roi3.count']:
+        getattr(vortex, channel).kind = 'normal'
+
+    for channel in ['channels.chan3','channels.chan4']:
+        getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan2']:
+        getattr(sclr, channel).kind = 'normal'
+
+    yield from bps.mov(appes_x, 41.8)
+    yield from bps.mov(appes_y,-145.5)
+    yield from bps.mov(pgm_energy, e_start)
+    yield from bp.scan(dets, pgm_energy, e_start, e_finish, numpoints)
+#    yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
+
+    yield from bps.mov(appes_x, 38)
+    yield from bps.mov(appes_y,-145.4)
+    yield from bps.mov(pgm_energy, e_start)
+    yield from bp.scan(dets, pgm_energy, e_start, e_finish, numpoints)
+#   yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
+
+#    yield from bps.mov(appes_x, 45)
+#    yield from bps.mov(appes_y,-145)
+#    yield from bps.mov(pgm_energy, e_start)
+#    yield from bp.scan(dets, pgm_energy, e_start, e_finish, numpoints)
+#   yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
+
+#    yield from bps.mov(appes_x, 45)
+#    yield from bps.mov(appes_y,-137.5)
+#    yield from bps.mov(pgm_energy, e_start)
+    yield from bp.scan(dets, pgm_energy, e_start, e_finish, numpoints)
+#   yield from E_ramp(dets, e_start, e_finish, velocity, deadband=deadband)
     
 def epu_gap_scans():
     dets=[sclr, ring_curr]
-    sclr.hints={'fields':['sclr_ch2']}
 
-    for ene_val in range(250, 1251, 50):
-        yield from bps.mov(pgm_energy, ene_val)
+    for channel in ['channels.chan2']:
+        getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan3','channels.chan4']:
+        getattr(sclr, channel).kind = 'normal'
+
+#   1st order horizontal
+
+#    yield from bps.abs_set(epu1table, 6)
+#    yield from bps.sleep(20)
+#    yield from bps.mov(pgm_energy, 250)
+
+#    for ene_val in range(250, 1251, 50):
+#        yield from bps.abs_set(feedback, 0)
+#        yield from bps.abs_set(pgm_energy, ene_val, wait=True)
+#        yield from bps.abs_set(feedback, 1)
+#        yield from bps.sleep(10)
+#        yield from bps.abs_set(feedback, 0)
+#        yield from bps.sleep(5)
+#        yield from bp.rel_scan(dets, epu1.gap, -2, 2, 80)
+
+#    for ene_val2 in range(1300, 1651, 50):
+#        yield from bps.abs_set(feedback, 0)
+#        yield from bps.abs_set(pgm_energy, ene_val2, wait=True)
+#        yield from bps.abs_set(feedback, 1)       
+#        yield from bps.sleep(10)
+#        yield from bps.abs_set(feedback, 0)
+#        yield from bps.sleep(5)
+#        yield from bp.rel_scan(dets, epu1.gap, -3, 3, 120)
+
+#   3rd order horizontal
+    yield from bps.abs_set(epu1.phase, 0, wait=True)
+    yield from bps.abs_set(epu1table, 3)
+    yield from bps.sleep(20)
+    yield from bps.abs_set(pgm_energy, 750, wait=True)
+
+    for ene_val3 in range(750, 1951, 50):
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.abs_set(pgm_energy, ene_val3, wait=True)
+        yield from bps.abs_set(feedback, 1)
         yield from bps.sleep(10)
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.sleep(5)
+        yield from bp.rel_scan(dets, epu1.gap, -1, 1, 80)
+
+#   1st order vertical
+    yield from bps.abs_set(epu1.phase, 24.6, wait=True)
+    yield from bps.abs_set(epu1table, 5)
+    yield from bps.abs_set(pgm_energy, 250, wait=True)
+    yield from bps.sleep(30)
+
+    for ene_val in range(250, 401, 50):
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.abs_set(pgm_energy, ene_val, wait=True)
+        yield from bps.sleep(10)
+        yield from bp.scan(dets, epu1.gap, 12, 15, 120)
+
+    for ene_val in range(450, 1251, 50):
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.abs_set(pgm_energy, ene_val, wait=True)
+        yield from bps.abs_set(feedback, 1)
+        yield from bps.sleep(10)
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.sleep(5)
         yield from bp.rel_scan(dets, epu1.gap, -2, 2, 80)
 
     for ene_val2 in range(1300, 1651, 50):
-        yield from bps.mov(pgm_energy, ene_val2)
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.abs_set(pgm_energy, ene_val2, wait=True)
+        yield from bps.abs_set(feedback, 1)
         yield from bps.sleep(10)
-        yield from bp.rel_scan(dets, epu1.gap, -3, 3, 120)
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.sleep(5)
+        yield from bp.rel_scan(dets, epu1.gap, -3, 3, 60)
 
-    caput('XF:23ID-ID{EPU:1}Val:Table-Sel',7)
-    yield from bps.sleep(10)
-    yield from bps.mov(pgm_energy, 750)
+#   3rd order vertical
 
-    for ene_val3 in range(750, 1951, 50):
-        yield from bps.mov(pgm_energy, ene_val3)
+
+    yield from bps.abs_set(epu1table ,9)
+    yield from bps.sleep(20)
+    yield from bps.abs_set(pgm_energy, 750, wait=True)
+
+    for ene_val in range(750, 1151, 50):
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.abs_set(pgm_energy, ene_val, wait=True)
         yield from bps.sleep(10)
-        yield from bp.rel_scan(dets, epu1.gap, -1.5, 1.5, 80)
+        yield from bp.scan(dets, epu1.gap, 12, 15, 120)
+
+
+    for ene_val3 in range(1200, 1951, 50):
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.abs_set(pgm_energy, ene_val3, wait=True)
+        yield from bps.abs_set(feedback, 1)
+        yield from bps.sleep(10)
+        yield from bps.abs_set(feedback, 0)
+        yield from bps.sleep(5)
+        yield from bp.rel_scan(dets, epu1.gap, -1, 1, 80)
+
+    yield from bps.abs_set(valve_diag3_close, 1, wait=True)
+    yield from bps.abs_set(valve_mir3_close, 1, wait=True)
+
+
+
+
 
 def nexafs_pey(dets, e_start, e_finish):
 
@@ -268,18 +457,18 @@ def test():
 
 CONTAINER = None
 REF_EDGES = {'Al' : {'energy': 1560 , 'epu_table': 7 , 'vortex_low': 3200 , 'vortex_high': 4000},
-             'Cu' : {'energy': 932  , 'epu_table': 6 , 'vortex_low': 1000 , 'vortex_high': 1200},
-             'O'  : {'energy': 540  , 'epu_table': 6 , 'vortex_low': 450  , 'vortex_high': 650},
-             'Ni' : {'energy': 851  , 'epu_table': 6 , 'vortex_low': 1000 , 'vortex_high': 1200},
+             'Cu' : {'energy': 932  , 'epu_table': 6 , 'vortex_low': 1600 , 'vortex_high': 2200},
+             'O'  : {'energy': 540  , 'epu_table': 6 , 'vortex_low': 500 , 'vortex_high': 700},
+             'Ni' : {'energy': 855  , 'epu_table': 6 , 'vortex_low': 900 , 'vortex_high': 1100},
              'Fe' : {'energy': 709  , 'epu_table': 6 , 'vortex_low': 700  , 'vortex_high': 1000},
              'F'  : {'energy': 691  , 'epu_table': 6 , 'vortex_low': 700  , 'vortex_high': 1000},
              'Na' : {'energy': 1075 , 'epu_table': 6 , 'vortex_low': 1000 , 'vortex_high': 1400},
              'N'  : {'energy': 407  , 'epu_table': 6 , 'vortex_low': 300  , 'vortex_high': 400},
-             'Co' : {'energy': 780  , 'epu_table': 6 , 'vortex_low': 900  , 'vortex_high': 1100},
-             'Mn' : {'energy': 640  , 'epu_table': 6 , 'vortex_low': 800  , 'vortex_high': 900},
-
-
-
+             'Co' : {'energy': 780  , 'epu_table': 6 , 'vortex_low': 850  , 'vortex_high': 1000},
+             'Mn' : {'energy': 654  , 'epu_table': 6 , 'vortex_low': 700  , 'vortex_high': 800},
+             'Ti' : {'energy': 466  , 'epu_table': 2 , 'vortex_low': 350  , 'vortex_high': 600},
+             'Mo' : {'energy': 380  , 'epu_table': 2 , 'vortex_low': 300  , 'vortex_high': 500},
+             'C' : {'energy': 291 , 'epu_table': 6 , 'vortex_low': 220 , 'vortex_high': 400},
 }
 
 def find_sample(edge, xstart, xstop, step):
@@ -304,7 +493,8 @@ def find_sample(edge, xstart, xstop, step):
         getattr(sclr, channel).kind = 'normal'
     dets = [sclr, vortex]
 #    vortex.mca.rois.roi2.count.kind = 'hinted'
-    yield from bp.scan(dets, ioxas_x, xstart, xstop, pts)
+    yield from bp.scan(dets, appes_y, xstart, xstop, pts)
+#    yield from bp.scan(dets, ioxas_x, xstart, xstop, pts)
     yield from bps.sleep(2)
     restore_hint_state(vortex, old_hints_vortex)
     restore_hint_state(sclr, old_hints_sclr)

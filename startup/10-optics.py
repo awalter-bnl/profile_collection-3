@@ -95,3 +95,10 @@ ioxas_x = EpicsMotor('XF:23ID2-BI{IOXAS:1-Ax:X}Mtr', name='ioxas_x')
 
 vortex_x = EpicsMotor('XF:23ID2-BI{Vortex:1-Ax:X}Mtr', name='vortex_x')
 
+# APPES manipulator
+
+appes_y = EpicsMotor('XF:23ID2-ES{APPES:1-Ax:Y}Mtr', name='appes_y')
+appes_x = EpicsMotor('XF:23ID2-ES{APPES:1-Ax:X}Mtr', name='appes_x')
+appes_z = EpicsMotor('XF:23ID2-ES{APPES:1-Ax:Z}Mtr', name='appes_z')
+appes_t = EpicsMotor('XF:23ID2-ES{APPES:1-Ax:R}Mtr', name='appes_t')
+

@@ -15,43 +15,80 @@ def adrians_xps():
     yield from bps.mov(valve_diag3_close, 1)
     yield from bps.mov(valve_mir3_close, 1)
 
-def multi_XAS():
-    dets = [sclr, norm_ch4, ring_curr]
+"""def Felix_and_Friends():
+    dets = [sclr, vortex, norm_ch4, ring_curr]
+ 
+    for channel in ['mca.rois.roi2.count','mca.rois.roi3.count','mca.rois.roi4.count']:
+        getattr(vortex, channel).kind = 'hinted'
+    for channel in ['mca.rois.roi2.count','mca.rois.roi3.count']:
+        getattr(vortex, channel).kind = 'normal'
+
     for channel in ['channels.chan3','channels.chan4']:
         getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan2']:
+        getattr(sclr, channel).kind = 'normal'
+
+    yield from bps.mov(appes_x, 39)
+    yield from bps.mov(appes_y,-145)
+    yield from bps.mov(pgm_energy, 1245)
+    yield from E_ramp(dets, 1245, 1170, 0.2, deadband=18)
+
+    yield from bps.mov(appes_x, 39)
+    yield from bps.mov(appes_y,-137.5)
+    yield from bps.mov(pgm_energy, 1245)
+    yield from E_ramp(dets, 1245, 1170, 0.2, deadband=18)
+
+    yield from bps.mov(appes_x, 45)
+    yield from bps.mov(appes_y,-145)
+    yield from bps.mov(pgm_energy, 1245)
+    yield from E_ramp(dets, 1245, 1170, 0.2, deadband=18)
+
+    yield from bps.mov(appes_x, 45)
+    yield from bps.mov(appes_y,-137.5)
+    yield from bps.mov(pgm_energy, 1245)
+    yield from E_ramp(dets, 1245, 1170, 0.2, deadband=18)
+"""
+
+def multi_XAS():
+    for channel in ['mca.rois.roi2.count','mca.rois.roi3.count','mca.rois.roi4.count']:
+        getattr(vortex, channel).kind = 'hinted'
+    for channel in ['mca.rois.roi2.count','mca.rois.roi3.count']:
+        getattr(vortex, channel).kind = 'normal'
+    dets = [sclr, vortex, norm_ch4, ring_curr]
+
+    for channel in ['channels.chan3','channels.chan4']:
+        getattr(sclr, channel).kind = 'hinted'
+    for channel in ['channels.chan2']:
+        getattr(sclr, channel).kind = 'normal'
+
+# Make sure Au mesh is in position
+    yield from bps.abs_set(au_mesh, -103.950, wait=True)
+
 
 #   Al K measurements
-#    yield from bps.abs_set(feedback, 0, wait=True)
-#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
-#    yield from bps.abs_set(epu1table, 7, wait=True)
-#    yield from bps.abs_set(epu1offset, 8, wait=True)
-#    yield from bps.sleep(30)
-#    yield from bps.abs_set(feedback, 1, wait=True)
-#    yield from bps.sleep(30)
-#    yield from bps.abs_set(feedback, 0, wait=True)
-#    yield from bps.abs_set(sample_sclr_gain, 0, wait=True)
-#    yield from bps.abs_set(sample_sclr_decade, 3, wait=True)
-#    yield from bps.abs_set(aumesh_sclr_gain, 2, wait=True)
-#    yield from bps.abs_set(aumesh_sclr_decade, 2, wait=True)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(pgm_energy, 1565, wait=True)
+    yield from bps.abs_set(epu1table, 7, wait=True)
+    yield from bps.abs_set(epu1offset, 6, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(sample_sclr_gain, 1, wait=True)
+    yield from bps.abs_set(sample_sclr_decade, 2, wait=True)
+    yield from bps.abs_set(aumesh_sclr_gain, 1, wait=True)
+    yield from bps.abs_set(aumesh_sclr_decade, 2, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.lo_chan, 1500, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.hi_chan, 1900, wait=True)
 
-#    yield from bps.abs_set(ioxas_x, 250.4, wait=True)
-#    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
-#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
 
-#    yield from bps.abs_set(ioxas_x, 253.3, wait=True)
-#    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
-#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
+    yield from bps.abs_set(ioxas_x, 278.6, wait=True)
+    yield from E_ramp(dets, 1592, 1552, 0.1, deadband=4)
+    yield from bps.abs_set(pgm_energy, 1592, wait=True)
 
-#    yield from bps.abs_set(ioxas_x, 256.5, wait=True)
-#    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
-#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
-
-#    yield from bps.abs_set(ioxas_x, 259.1, wait=True)
-#    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
-#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
-#    yield from bps.abs_set(ioxas_x, 250.4, wait=True)
-#    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
-#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
+    yield from bps.abs_set(ioxas_x, 290.0, wait=True)
+    yield from E_ramp(dets, 1592, 1552, 0.1, deadband=4)
+    yield from bps.abs_set(pgm_energy, 1592, wait=True)
 
 #    yield from bps.abs_set(ioxas_x, 253.3, wait=True)
 #    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
@@ -62,6 +99,9 @@ def multi_XAS():
 #    yield from bps.abs_set(pgm_energy, 1565, wait=True)
 
 #    yield from bps.abs_set(ioxas_x, 259.1, wait=True)
+#    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
+#    yield from bps.abs_set(pgm_energy, 1565, wait=True)
+#    yield from bps.abs_set(ioxas_x, 250.4, wait=True)
 #    yield from E_ramp(dets, 1552, 1592, 0.05, deadband=1.2)
 #    yield from bps.abs_set(pgm_energy, 1565, wait=True)
 
@@ -96,86 +136,188 @@ def multi_XAS():
 #    yield from bps.abs_set(pgm_energy, 1565, wait=True)
 
 #O K measurement
-
-
     yield from bps.abs_set(feedback, 0, wait=True)
     yield from bps.abs_set(pgm_energy, 540, wait=True)
     yield from bps.abs_set(epu1table, 6, wait=True)
-    yield from bps.abs_set(epu1offset, 0, wait=True)
+    yield from bps.abs_set(epu1offset, 1, wait=True)
     yield from bps.sleep(10)
     yield from bps.abs_set(feedback, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 0, wait=True)
     yield from bps.abs_set(sample_sclr_gain, 2, wait=True)
     yield from bps.abs_set(sample_sclr_decade, 3, wait=True)
     yield from bps.abs_set(aumesh_sclr_gain, 2, wait=True)
     yield from bps.abs_set(aumesh_sclr_decade, 3, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.lo_chan, 500, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.hi_chan, 700, wait=True)
+
 
 #    yield from bps.abs_set(ioxas_x, 250.3, wait=True)
 #    yield from E_ramp(dets, 520, 570, 0.05, deadband=8)
 #    yield from bps.abs_set(pgm_energy, 520, wait=True)
     
-    yield from bps.abs_set(ioxas_x, 253.2, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.05, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
+    yield from bps.abs_set(ioxas_x, 254.8, wait=True)
+    yield from E_ramp(dets, 575, 520, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 575, wait=True)
 
-    yield from bps.abs_set(ioxas_x, 256.35, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.05, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
+    yield from bps.abs_set(ioxas_x, 266.7, wait=True)
+    yield from E_ramp(dets, 575, 520, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 575, wait=True)
 
-    yield from bps.abs_set(ioxas_x, 259.1, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.05, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
+    yield from bps.abs_set(ioxas_x, 278.6, wait=True)
+    yield from E_ramp(dets, 575, 520, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 575, wait=True)
 
-    yield from bps.abs_set(sample_sclr_gain, 1, wait=True)
-    yield from bps.abs_set(sample_sclr_decade, 3, wait=True)
-    
-    yield from bps.abs_set(ioxas_x, 273.45, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.1, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
+    yield from bps.abs_set(ioxas_x, 290.0, wait=True)
+    yield from E_ramp(dets, 575, 520, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 575, wait=True)
 
-
-    yield from bps.abs_set(ioxas_x, 276.3, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.1, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
-
-    yield from bps.abs_set(ioxas_x, 279.6, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.1, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
-
-    yield from bps.abs_set(ioxas_x, 281.9, wait=True)
-    yield from E_ramp(dets, 520, 570, 0.1, deadband=8)
-    yield from bps.abs_set(pgm_energy, 520, wait=True)
-
-#Mo M2,3  measurments
-
+#Ni L2,3  measurements
     yield from bps.abs_set(feedback, 0, wait=True)
-    yield from bps.abs_set(pgm_energy, 410, wait=True)
+    yield from bps.abs_set(pgm_energy, 855, wait=True)
     yield from bps.abs_set(epu1table, 6, wait=True)
+    yield from bps.abs_set(epu1offset, 1, wait=True)
+    yield from bps.sleep(10)
     yield from bps.abs_set(feedback, 1, wait=True)
-    yield from bps.abs_set(sample_sclr_gain, 0, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(sample_sclr_gain, 1, wait=True)
     yield from bps.abs_set(sample_sclr_decade, 3, wait=True)
     yield from bps.abs_set(aumesh_sclr_gain, 0, wait=True)
     yield from bps.abs_set(aumesh_sclr_decade, 3, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.lo_chan, 900, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.hi_chan, 1100, wait=True)
 
- #   yield from bps.abs_set(ioxas_x, 0, wait=True)
- #   yield from bps.abs_set(valve_mir3_close, 1, wait=True)
+    yield from bps.abs_set(ioxas_x, 254.8, wait=True)
+    yield from E_ramp(dets, 882, 842, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 882, wait=True)
 
+    yield from bps.abs_set(ioxas_x, 266.7, wait=True)
+    yield from E_ramp(dets, 882, 842, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 882, wait=True)
 
-    yield from bps.abs_set(ioxas_x, 273.45, wait=True)
-    yield from E_ramp(dets, 380, 430, 0.05, deadband=4)
-    yield from bps.abs_set(pgm_energy, 380, wait=True)
+    yield from bps.abs_set(ioxas_x, 278.6, wait=True)
+    yield from E_ramp(dets, 882, 842, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 882, wait=True)
 
+    yield from bps.abs_set(ioxas_x, 290.0, wait=True)
+    yield from E_ramp(dets, 882, 842, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 882, wait=True)
 
-    yield from bps.abs_set(ioxas_x, 276.1, wait=True)
-    yield from E_ramp(dets, 380, 430, 0.05, deadband=4)
-    yield from bps.abs_set(pgm_energy, 380, wait=True)
+#F K measurements
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(pgm_energy, 705, wait=True)
+    yield from bps.abs_set(epu1table, 6, wait=True)
+    yield from bps.abs_set(epu1offset, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(sample_sclr_gain, 1, wait=True)
+    yield from bps.abs_set(sample_sclr_decade, 3, wait=True)
+    yield from bps.abs_set(aumesh_sclr_gain, 0, wait=True)
+    yield from bps.abs_set(aumesh_sclr_decade, 3, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.lo_chan, 700, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.hi_chan, 900, wait=True)
 
-    yield from bps.abs_set(ioxas_x, 279.8, wait=True)
-    yield from E_ramp(dets, 380, 430, 0.05, deadband=4)
-    yield from bps.abs_set(pgm_energy, 380, wait=True)
+    yield from bps.abs_set(ioxas_x, 254.8, wait=True)
+    yield from E_ramp(dets, 715, 680, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 715, wait=True)
 
-    yield from bps.abs_set(ioxas_x, 282.0, wait=True)
-    yield from E_ramp(dets, 380, 430, 0.05, deadband=4)
-    yield from bps.abs_set(pgm_energy, 380, wait=True)
+    yield from bps.abs_set(ioxas_x, 266.7, wait=True)
+    yield from E_ramp(dets, 715, 680, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 715, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 278.6, wait=True)
+    yield from E_ramp(dets, 715, 680, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 715, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 290.0, wait=True)
+    yield from E_ramp(dets, 715, 680, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 715, wait=True)
+
+#Co L2,3 measurements
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(pgm_energy, 785, wait=True)
+    yield from bps.abs_set(epu1table, 6, wait=True)
+    yield from bps.abs_set(epu1offset, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(sample_sclr_gain, 1, wait=True)
+    yield from bps.abs_set(sample_sclr_decade, 3, wait=True)
+    yield from bps.abs_set(aumesh_sclr_gain, 0, wait=True)
+    yield from bps.abs_set(aumesh_sclr_decade, 3, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.lo_chan, 900, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.hi_chan, 1000, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 254.8, wait=True)
+    yield from E_ramp(dets, 810, 770, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 810, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 266.7, wait=True)
+    yield from E_ramp(dets, 810, 770, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 810, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 278.6, wait=True)
+    yield from E_ramp(dets, 810, 770, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 810, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 290.0, wait=True)
+    yield from E_ramp(dets, 810, 770, 0.1, deadband=6)
+    yield from bps.abs_set(pgm_energy, 810, wait=True)
+
+# Make sure Au mesh is out of the way
+    yield from bps.abs_set(au_mesh, -73.950, wait=True)
+
+# C K measurements
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(pgm_energy, 291.5, wait=True)
+    yield from bps.abs_set(epu1table, 6, wait=True)
+    yield from bps.abs_set(epu1offset, 1.5, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 1, wait=True)
+    yield from bps.sleep(10)
+    yield from bps.abs_set(feedback, 0, wait=True)
+    yield from bps.abs_set(sample_sclr_gain, 2, wait=True)
+    yield from bps.abs_set(sample_sclr_decade, 2, wait=True)
+    yield from bps.abs_set(aumesh_sclr_gain, 2, wait=True)
+    yield from bps.abs_set(aumesh_sclr_decade, 2, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.lo_chan, 220, wait=True)
+    yield from bps.abs_set(vortex.mca.rois.roi2.hi_chan, 400, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 253.8, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 259.5, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 265.7, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 270.1, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 277.6, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 283.8, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 289, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
+
+    yield from bps.abs_set(ioxas_x, 294.4, wait=True)
+    yield from E_ramp(dets, 320, 275, 0.05, deadband=4)
+    yield from bps.abs_set(pgm_energy, 320, wait=True)
 
 
 def PD_scans():
