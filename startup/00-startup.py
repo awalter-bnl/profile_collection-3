@@ -1,30 +1,6 @@
 from databroker import Broker
 
-# move to /etc/databroker/csx2.yml
-config = {
-    'description' : "CSX2 raw data",
-    'metadatastore':
-        {'module' : 'databroker.headersource.mongo',
-         'class' : 'MDS',
-         'config' : {
-            'host':'xf23id-ca.cs.nsls2.local',
-            'database': 'datastore-23id2',
-            'port': 27017,
-            'timezone': 'US/Eastern',
-            'auth' : False}
-        },
-    'assets' : {
-        'module' : 'databroker.assets.mongo',
-        'class' : 'Registry',
-        'config' : {
-            'host':'xf23id-ca.cs.nsls2.local',
-            'port': 27017,
-            'database':'filestore'
-        }
-    },
-}
-
-db = Broker.from_config(config)
+db = Broker.named('csx2')
 
 import nslsii
 nslsii.configure_base(get_ipython().user_ns, db)
