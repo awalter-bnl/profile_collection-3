@@ -1,6 +1,7 @@
 from bluesky.plan_stubs import move_per_step, trigger_and_read, mv
 from IPython import get_ipython
 import numpy
+import pandas
 ip = get_ipython()
 
 
@@ -101,9 +102,11 @@ class FileDict():
         values.
     '''
     def __init__(self, name):
+        self.name = name
         self.dictionary = {}
         self._default_filepath = ''
         self.filepath = ''
+        self._index_name = ''  # The name used as the index in the file
 
     def load(self, filepath=None):
         '''Loads up a dictionary from a file
@@ -119,7 +122,23 @@ class FileDict():
             ``filepath=None`` is used it uses the value found in
             ``self.filepath``.
         '''
-        ...  # TODO: write the part that loads the data from the file
+        # if filepath = None use ``self.filepath`` otherwise update
+        # ``self.filepath``
+        if filepath is None:
+            filepath = self.filepath
+        else:
+            self.filepath = filepath
+
+        temp_dict = {}
+
+        # extract the information form the file and write it to the dictionary
+        f = pandas.read_excel(filepath)
+        f = f.set_index(self._index_name)
+
+        for row_name in f.index:
+            temp_dict[row_name] = dict(f.loc[row_name])
+
+        self.dictionary = temp_dict
 
     def reset_defaults(self):
         '''Resets ``self.filepath`` to the default value and reloads the dict.
@@ -154,6 +173,9 @@ class MultiScan():
         initialization time.
     default_map_filepath : string or Path
         The default filepath for the file containing the scan_map information.
+    map_index_name : str, optional
+        The name to use to index the data from the scanmap file, default is
+        ``scan_name``.
 
     Attributes
     ----------
@@ -176,10 +198,12 @@ class MultiScan():
     '''
     scanmap = FileDict('scanmap')
 
-    def __init__(self, scan_arguments, default_map_filepath, name):
+    def __init__(self, scan_arguments, default_map_filepath, name,
+                 map_index_name='scan_name'):
         self.scan_arguments = scan_arguments
         self.name = name
         self.scanmap._default_filepath = default_map_filepath
+        self.scanmap._index_name = map_index_name
         self.scanmap.reset_defaults()
 
     def _convert_arguments(self, plan, arguments):
@@ -198,6 +222,10 @@ class MultiScan():
             A list of converted arguments ready to be fed to the plan.
         '''
         args = []
+        if type(arguments) == str:
+            arguments.split(',')
+        elif type(arguments) != list:
+            arguments=[arguments]
         for i, (key, val) in enumerate(self.scan_arguments[plan].items()):
             if type(val) == type:
                 args.append(val(arguments[i]))
@@ -225,7 +253,7 @@ class MultiScan():
             dets = [_str_to_obj(det)
                     for det in scaninfo['detectors'].split(',')]
             args = self._convert_arguments(scaninfo['plan'],
-                                           scaninfo['arguments'].split(','))
+                                           scaninfo['arguments'])
             per_step = ip.user_ns[scaninfo['spectra_type']](
                 scaninfo['interesting_edges'].split(','))
             yield from ip.user_ns[scaninfo['plan']](dets, *args,
@@ -263,6 +291,12 @@ class MultiSpectra():
         The default filepath for the spectrum 'parameters' file.
     default_settings_filepath : str or Path
         The default filepath for the spectrum 'settings' file.
+    parameters_index_name : str
+        The column name that indicates the 'index' in the parameters file,
+        default is 'edge_name'.
+    settings_index_name : str
+        The column name that indicates the 'index' in the settings file,
+        default is 'edge_name'.
     name : str, optional
         The name of the instantiated version of this class.
 
@@ -294,11 +328,15 @@ class MultiSpectra():
     settings = FileDict('settings')
 
     def __init__(self, detectors, default_parameters_filepath,
-                 default_settings_filepath, name):
+                 default_settings_filepath, name,
+                 parameters_index_name='edge_name',
+                 settings_index_name='edge_name'):
         self.detectors = detectors
         self.name = name
         self.parameters._default_filepath = default_parameters_filepath
         self.settings._default_filepath = default_settings_filepath
+        self.settings._index_name = settings_index_name
+        self.parameters._index_name = parameters_index_name
         self.parameters.reset_defaults()
         self.settings.reset_defaults()
 
