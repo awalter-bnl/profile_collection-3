@@ -222,10 +222,12 @@ class MultiScan():
             A list of converted arguments ready to be fed to the plan.
         '''
         args = []
+
         if type(arguments) == str:
-            arguments.split(',')
+            arguments = arguments.split(',')
         elif type(arguments) != list:
-            arguments=[arguments]
+            arguments = [arguments]
+
         for i, (key, val) in enumerate(self.scan_arguments[plan].items()):
             if type(val) == type:
                 args.append(val(arguments[i]))
