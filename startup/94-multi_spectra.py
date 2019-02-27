@@ -2,7 +2,8 @@ from bluesky.plan_stubs import move_per_step, trigger_and_read, mv
 from IPython import get_ipython
 import numpy
 from ophyd import Device
-ip=get_ipython()
+ip = get_ipython()
+
 
 class MultiSpectraValueError(ValueError):
     ...
@@ -30,7 +31,7 @@ test_scan_map = {
 
 
 def _str_to_obj(str_ref):
-    '''converts a string ref to an ``ophyd.Device`` object to an reference
+    '''Converts a string ref to an ``ophyd.Device`` object to an reference.
 
     Parameters
     ----------
@@ -48,7 +49,7 @@ def _str_to_obj(str_ref):
     obj = ip.user_ns[parent]
     for attr in attrs.split('.'):
         if attr != '':
-            obj=getattr(obj,attr)
+            obj = getattr(obj, attr)
     return obj
 
 
@@ -64,8 +65,8 @@ def _move_from_dict(move_dict):
     Parameters
     ----------
     move_dict, dict
-        A dictionary mapping ``ophyd.Device``s to be moved to postions
-        to move to. See above for a description of of this dictionary.
+        A dictionary mapping ``ophyd.Device``s to be moved to positions
+        to move to. See above for a description of this dictionary.
     '''
     settings_list = []
     for key, value in move_dict.items():
@@ -76,9 +77,9 @@ def _move_from_dict(move_dict):
 
 
 class FileDict():
-    '''A class used for dictionaries loaded from excell files.
+    '''A class used for dictionaries loaded from Excel files.
 
-    This class should be used to define an attribute for dictioanries loaded
+    This class should be used to define an attribute for dictionaries loaded
     from Office Excel/LibreOffice Calc files and the assoicated attributes for
     the dictionary.
 
@@ -136,7 +137,7 @@ class MultiScan():
     'dets', 'spectra_type' and 'interesting_edges', it may also contain the
     keys 'plan' and 'arguments' to indicate a particular plan to call and what
     args to include. Finally it may also contain keys which relate to any
-    'settable' ``ophyd.device`` (like 'manip.x')and a value to set it to. These
+    'settable' ``ophyd.device`` (like 'manip.x') and a value to set it to. These
     values will be set prior to the scan being performed.
 
     Call Parameters
@@ -159,7 +160,7 @@ class MultiScan():
     ----------
     scanmap : FileDict
         A FileDict object that has an attribute, dictionary, that maps
-        scan names to scan types and parameters related to the each scan to be
+        scan names to scan types and parameters related to each scan to be
         performed. It also has attributes for loading information into the dict
         from a file.
     scan_arguments : dict
@@ -167,7 +168,7 @@ class MultiScan():
         that maps the arguments that each scan requires to a type. Types can be
         any ``type`` object or 'obj'. For all types but 'obj' the input will be
         converted using the type (eg. str(val) ). For obj the val will be
-        passed to ``_str_2_obj``. Wwargs assume default values, except for
+        passed to ``_str_2_obj``. Kwargs assume default values, except for
         ``per_step`` which is internally set. This dictionary is set at
         initialization time.
     validate : func
@@ -195,7 +196,7 @@ class MultiScan():
         Returns
         -------
         args : list
-            A list of converted argumentsready to be fed to the plan.
+            A list of converted arguments ready to be fed to the plan.
         '''
         args = []
         for i, (key, val) in enumerate(self.scan_arguments[plan].items()):
@@ -223,7 +224,7 @@ class MultiScan():
         for scan in scans:
             scaninfo = self.scanmap.dictionary[scan]
             dets = [_str_to_obj(det)
-                for det in scaninfo['detectors'].split(',')]
+                    for det in scaninfo['detectors'].split(',')]
             args = self._convert_arguments(scaninfo['plan'],
                                            scaninfo['arguments'].split(','))
             per_step = ip.user_ns[scaninfo['spectra_type']](
@@ -238,7 +239,7 @@ class MultiSpectra():
     This class is intended to store a set of dictionaries associated with
     scans where multiple 'spectra' need to be taken at each step in a 'plan'.
     It also is a callable function that returns a ``per_step`` function,
-    analagous to ``bluesky.plan_stubs.one_nd_step``. This plan can be used with
+    analogous to ``bluesky.plan_stubs.one_nd_step``. This plan can be used with
     the ``per_step`` kwarg in any plan that accepts ``per_step`` kwargs.
 
     An instance of this class will have the following parameters and
@@ -256,8 +257,8 @@ class MultiSpectra():
     detectors : dict
         A dictionary that maps the detectors associated with this scan type to
         a value that indicates if the detector is a '0D' detector, where
-        each trigger returns a single float ot int, or a '1D' detector, where
-        each trigger returns a full spectra. This dictionary is defined at
+        each trigger returns a single float or int, or a '1D' detector, where
+        each trigger returns a full spectrum. This dictionary is defined at
         initialization time.
     default_parameters_filepath : str or Path
         The default filepath for the spectrum 'parameters' file.
@@ -280,9 +281,9 @@ class MultiSpectra():
     detectors : dict
         A dictionary that maps the detectors associated with this scan type to
         an attribute associated with the keys from the ``self.parameters``
-        dict. For point-detecotors (a single value for trigger) their should be
+        dict. For point-detectors (a single value for trigger) there should be
         a single key in the detector sub-dictionary called 'spectra_axis' that
-        indicates the axis(eg. photon energy) for bluesky to scan with the
+        indicates the axis (eg. photon energy) for bluesky to scan with the
         values from ``self.parameters``. This dictionary is defined at
         instantiation time.
     validate : func
@@ -347,7 +348,7 @@ class MultiSpectra():
                                             parameters['step_size']):
                 yield from mv(axis, spectra_pos)
                 yield from trigger_and_read(
-                    list(detectors)+list(motors)+[axis], name=stream_name)
+                    list(detectors) + list(motors) + [axis], name=stream_name)
 
         # define the `per_step` function that is to be returned.
         def _multi_spectrum(detectors, step, pos_cache):
@@ -389,7 +390,7 @@ class MultiSpectra():
                     raise MultiSpectraValueError(
                         f'The "spectra_axis" kwarg in {self.name}.detectors '
                         f'returns {spectra_axes} for the detectors '
-                        f'{spectra_dets} However, the "spectra_axis" should be'
+                        f'{spectra_dets}. However, the "spectra_axis" should be'
                         f' the same for all.')
             elif all('low_energy' in self.detectors[det].keys()
                      for det in spectra_dets):  # if all spectra_dets are 1D
