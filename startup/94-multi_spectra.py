@@ -1,7 +1,6 @@
 from bluesky.plan_stubs import move_per_step, trigger_and_read, mv
 from IPython import get_ipython
 import numpy
-from ophyd import Device
 ip = get_ipython()
 
 
@@ -137,8 +136,8 @@ class MultiScan():
     'dets', 'spectra_type' and 'interesting_edges', it may also contain the
     keys 'plan' and 'arguments' to indicate a particular plan to call and what
     args to include. Finally it may also contain keys which relate to any
-    'settable' ``ophyd.device`` (like 'manip.x') and a value to set it to. These
-    values will be set prior to the scan being performed.
+    'settable' ``ophyd.device`` (like 'manip.x') and a value to set it to.
+    These values will be set prior to the scan being performed.
 
     Call Parameters
     ---------------
@@ -214,7 +213,7 @@ class MultiScan():
     def __call__(self, scans):
         # check that scans is a list or a str, if a str convert to a list
         if type(scans) == str:
-            scans = []
+            scans = [scans]
         elif type(scans) != list:
             raise MultiSpectraValueError(
                 f'when calling ``{self.name}(scans)`` `scans` is expected'
@@ -248,7 +247,7 @@ class MultiSpectra():
     Call Parameters
     ---------------
     spectra, str or list
-        The spectrum to perform, or a list of spectrum to perform, at each
+        The spectrum to perform, or a list of spectra to perform, at each
         step of a scan. The names listed here must be present as keys in both
         the ``self.parameters`` and ``self.settings`` dictionaries.
 
@@ -306,7 +305,7 @@ class MultiSpectra():
     def __call__(self, spectra):
         # check that spectra is a list or a str, if a str convert to a list
         if type(spectra) == str:
-            spectra = []
+            spectra = [spectra]
         elif type(spectra) != list:
             raise MultiSpectraValueError(
                 f'when calling ``{self.name}(spectra)`` `spectra` is expected'
@@ -343,7 +342,7 @@ class MultiSpectra():
 
             # step through each step in the 'spectra' and record the results
             for spectra_pos in numpy.arange(parameters['low_energy'],
-                                            (parameters['high_energy']+
+                                            (parameters['high_energy'] +
                                              parameters['step_size']/2),
                                             parameters['step_size']):
                 yield from mv(axis, spectra_pos)
@@ -380,7 +379,7 @@ class MultiSpectra():
             if all('spectra_axis' in self.detectors[det].keys()
                    for det in spectra_dets):  # if all spectra_dets are 0D
                 spectra_axes = [self.detectors[det]['spectra_axis']
-                    for det in spectra_dets]
+                                for det in spectra_dets]
                 spectra_axis = spectra_axes[0]
                 if all(val == spectra_axis for val in spectra_axes):
                     for spectrum in spectra:  # step through + acquire spectra
@@ -390,8 +389,8 @@ class MultiSpectra():
                     raise MultiSpectraValueError(
                         f'The "spectra_axis" kwarg in {self.name}.detectors '
                         f'returns {spectra_axes} for the detectors '
-                        f'{spectra_dets}. However, the "spectra_axis" should be'
-                        f' the same for all.')
+                        f'{spectra_dets}. However, the "spectra_axis" should '
+                        f'be the same for all.')
             elif all('low_energy' in self.detectors[det].keys()
                      for det in spectra_dets):  # if all spectra_dets are 1D
                 for spectrum in spectra:  # step through and acquire spectra
@@ -402,12 +401,19 @@ class MultiSpectra():
                     for det in spectra_dets:
                         yield from _move_from_dict(
                             {self.detectors[det].get(k, k): v
-                            for k,v in self.parameters.dictionary.items()})
+                             for k, v in self.parameters.dictionary.items()})
                     # trigger and read each spectra.
                     yield from trigger_and_read(list(detectors)+list(motors),
                                                 name=spectrum)
             else:
-                raise Error
+                spectra_det_keys = {det.name: self.detectors[det].keys()
+                                    for det in spectra_dets}
+                raise MultiSpectraValueError(
+                    f'In ``multispectra._multi_spectrum`` it is expected that '
+                    f' each of the requested detectors that are included in '
+                    f'{self.name}.detectors also have either "spectra_axis" '
+                    f'or the group ["low_energy", "high_energy", "step_size"] '
+                    f'as keys. The detectors fitting this description have the'
+                    f' the following keys: {spectra_det_keys}')
 
-
-        return _multi_spectrum # return the `per_step` function
+        return _multi_spectrum  # return the `per_step` function
