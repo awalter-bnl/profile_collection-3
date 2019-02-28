@@ -19,7 +19,7 @@ from ophyd.signal import Signal
 from bluesky.plans import count, scan
 from bluesky.simulators import summarize_plan
 hw = hw()
-specs = hw.det
+specs = hw.det2
 specs.name = 'specs'
 specs.gain = Signal(name='specs_gain')
 specs.decade = Signal(name='specs_decade')
@@ -28,6 +28,10 @@ specs.high_energy = Signal(name='specs_high_energy')
 specs.step_size = Signal(name='specs_step_size')
 specs.mode = Signal(name='specs_mode')
 specs.num_acquisitions = Signal(name='specs_num_acquisitions')
+vortex = hw.det1
+vortex.name = 'vortex'
+vortex.gain = Signal(name='vortex_gain')
+vortex.decade = Signal(name='vortex_decade')
 photon_energy = Signal(name='photon_energy')
 motor = hw.motor
 motor1 = hw.motor1
@@ -173,14 +177,14 @@ def ios_multiscan_plan_factory(scans):
         yield from ip.user_ns[plan](dets, *args, per_step=per_step)
 
 
-# define the plan that results in a single 'xps' spectra being taken.
+# define the plan that results in multiple 'xps' spectra being taken per_step.
 def ios_xps_per_step_factory(spectra):
     '''returns a per_step function that will perform multiple XPS spectra.
 
-    This yields a plan that will set each value required to generate an XPS
-    spectra using the specs detector at IOS and then triggers the detector (and
-    any ancillary detectors) which executes the spectra for each spectra in
-    `spectra`.
+    This yields a per_step function that will set each value required to
+    generate an XPS spectra using the specs detector at IOS and then triggers
+    the detector (and any ancillary detectors) which executes the spectra for
+    each spectra in `spectra`.
 
     Parameters
     ----------
@@ -234,6 +238,73 @@ def ios_xps_per_step_factory(spectra):
             # perform the scan
             yield from trigger_and_read(list(detectors)+list(motors),
                                         name=peak_name)
+
+    return _per_step
+
+
+# define the plan that results in multiple 'xas_step' spectra being taken
+# per_step.
+def ios_xas_step_per_step_factory(spectra):
+    '''returns a per_step function that will perform multiple XAS spectra.
+
+    This yields a per_step function that will set each value required to
+    generate an XAS step spectra using the specs detector at IOS and then
+    steps through each energy point and triggers and reads the detector (and
+    any ancillary detectors) for each `spectra`.
+
+    Parameters
+    ----------
+    spectra : list
+        A list of (edge_name, parameters, settings) tuples with the
+        following parameters:
+
+        edge_name : str
+            The name to use for the stream.
+        parameters : dict
+            A dictionary mapping parameter names to values for the peak given
+            by peak_name.
+        settings : dict
+            A dictionary mapping ``ophyd.Device``s to values that need to be
+            set prior to the peak given by peak_name being acquired.
+    '''
+
+    def _per_step(detectors, step, pos_cache):
+        '''This triggers multiple spectra at each point in a plan.
+
+        This function is analagous to the `bluesky.plan_stubs.one_nd_step`
+        function and should be used instead of that via the kwarg
+        `per_step=multi_spectrum` in a call to any default plan except
+        count.
+
+        Parameters
+        ----------
+        detectors : list
+            a list of detectors to trigger at each point
+        step : dict
+            a dictionary mapping motors to values for this point in the
+            scan
+        pos_cache : dict
+            a dictionary mapping motors to their last-set positions.
+        '''
+        motors = step.keys()
+        # move any motors that the outer plan requires to be moved.
+        yield from move_per_step(step, pos_cache)
+
+        for (edge_name, parameters, settings) in spectra:
+            # move the devices in settings into place
+            yield from _move_from_dict(settings)
+
+            #TODO add a repeat 'num_spectra' times loop with a signal to
+            #read to indicate loop number.
+
+            for energy in numpy.arange(parameters['low_energy'],
+                                       parameters['high_energy'] +
+                                       parameters['step_size']/2,
+                                       parameters['step_size']):
+                yield from mv(photon_energy, energy)
+                yield from trigger_and_read(
+                    list(detectors)+list(motors)+[photon_energy],
+                    name=edge_name)
 
     return _per_step
 
@@ -421,6 +492,13 @@ class PlanSchedular():
 xps = PlanSchedular('xps', ios_xps_per_step_factory,
                     'test_spectrum_parameters.xlsx',
                     'test_spectrum_settings.xlsx', 'peak_name', 'peak_name')
+
+
+# define the PlanSchedular for the xas step per_step function
+xas_step = PlanSchedular('xas_step', ios_xas_step_per_step_factory,
+                    'test_xas_spectrum_parameters.xlsx',
+                    'test_xas_spectrum_settings.xlsx', 'edge_name',
+                    'edge_name')
 
 
 # define the PlanScheduler for the scans
