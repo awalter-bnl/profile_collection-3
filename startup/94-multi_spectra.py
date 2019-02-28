@@ -9,25 +9,30 @@ class MultiSpectraValueError(ValueError):
     ...
 
 
-test_spectrum_parameters = {
-    'C1s': {'low_energy': 285, 'high_energy': 300, 'step_size': 5},
-    'O1s': {'low_energy': 525, 'high_energy': 540, 'step_size': 5}}
+class PlanSchedulerValueError(ValueError):
+    ...
 
 
-test_spectrum_settings = {
-    'C1s': {'det.gain': 2, 'det.decade': 1},
-    'O1s': {'det.gain': 3, 'det.decade': 2}}
-
-
-test_scan_map = {
-    'test_scan1': {'detectors': 'det', 'spectra_type': 'xps',
-                   'interesting_edges': 'C1s',
-                   'plan': 'scan', 'arguments': 'motor,0,5,4',
-                   'hw.motor2.x': 100},
-    'test_scan2': {'spectra_type': 'xps',
-                   'interesting_edges': 'C1s,O1s',
-                   'plan': 'count', 'arguments': 2,
-                   'hw.motor2.x': 200}}
+# This section is some temporary test objects
+from ophyd.sim import hw
+from ophyd.signal import Signal
+from bluesky.plans import count, scan
+from bluesky.simulators import summarize_plan
+hw = hw()
+specs = hw.det
+specs.name = 'specs'
+specs.gain = Signal(name='specs_gain')
+specs.decade = Signal(name='specs_decade')
+specs.low_energy = Signal(name='specs_low_energy')
+specs.high_energy = Signal(name='specs_high_energy')
+specs.step_size = Signal(name='specs_step_size')
+specs.mode = Signal(name='specs_mode')
+specs.num_acquisitions = Signal(name='specs_num_acquisitions')
+photon_energy = Signal(name='photon_energy')
+motor = hw.motor
+motor1 = hw.motor1
+motor2 = hw.motor2
+det = hw.det
 
 
 def _str_to_obj(str_ref):
@@ -76,6 +81,163 @@ def _move_from_dict(move_dict):
     yield from mv(*settings_list)
 
 
+# define the plan that results in multiple 'scans' being performed at each step
+def ios_multiscan_plan_factory(scans):
+    '''returns a plan that will perform multiple scans in order.
+
+    This generates a plan to set each value required to generate a scan at IOS
+    for each scan in 'scans'.
+
+    Parameters
+    ----------
+    scans : list
+        A list of (scan_name, parameters, settings) tuples with the
+        following parameters:
+
+        scan_name : str
+            The name of the scan to perform.
+        parameters : dict
+            A dictionary mapping parameter names to values for the scan given
+            by scan_name.
+        settings : dict
+            A dictionary mapping ``ophyd.Device``s to values that need to be
+            set prior to the scan given by scan_name being acquired.
+    '''
+
+    # Below is a dictionary that maps scan types (count, scan,...) to a
+    # dictionary that maps the arguments that each scan requires to a type.
+    # Types can be any ``type`` object or 'obj'. For all types but 'obj' the
+    # input will be converted using the type (eg. str(val) ). For obj the val
+    # will be passed to ``_str_2_obj``. Kwargs assume default values.
+    plan_arguments = {
+        'scan': {'motor1': 'obj', 'start1': float, 'stop1': float, 'num': int},
+        'count': {}}
+
+    def _convert_arguments(plan, arguments):
+        '''converts the arguments value in scanmap to a useable list
+
+        Parameters
+        ----------
+        plan : str
+            The key to extract the type information from ``self.detectors``
+        arguments : list
+            The list of arguments extracted from ``self.scanmap.dictionary``
+
+        Returns
+        -------
+        args : list
+            A list of converted arguments ready to be fed to the plan.
+        '''
+        args = []
+
+        if type(arguments) == str:
+            arguments = arguments.split(',')
+        elif type(arguments) != list:
+            arguments = [arguments]
+
+        for i, (key, val) in enumerate(plan_arguments[plan].items()):
+            if type(val) == type:
+                args.append(val(arguments[i]))
+            elif type(val) == str and val == 'obj':
+                args.append(_str_to_obj(arguments[i]))
+            else:
+                raise PlanSchedulerValueError(
+                    f'The value found from plan_arguments[{key}] in '
+                    f'"ios_multi_scan_plan_factory" is not a valid value.'
+                    f'Valid values are any ``type`` object or the string "obj"'
+                    )
+        return args
+
+    # step through each of the requested scans and perform it.
+    for (scan_name, parameters, settings) in scans:
+        # check if a plan and arguments are given, use 'count' if not.
+        try:
+            plan = parameters['plan']
+            arguments = parameters['arguments']
+        except KeyError:
+            plan = 'count'
+            arguments = []
+
+        # move to the predefined positions for this scan
+        yield from _move_from_dict(settings)
+
+        # convert detectors to a list of ``ophyd.Device`` objects.
+        dets = [_str_to_obj(det)
+                for det in parameters['detectors'].split(',')]
+        # convert the arguments basd on the plan type
+        args = _convert_arguments(plan, arguments)
+        # extract the per_step function from the 'spectra_type' parameter
+        per_step = ip.user_ns[parameters['spectra_type']](
+            parameters['interesting_spectra'].split(','))
+        # yield from the required plan
+        yield from ip.user_ns[plan](dets, *args, per_step=per_step)
+
+
+# define the plan that results in a single 'xps' spectra being taken.
+def ios_xps_per_step_factory(spectra):
+    '''returns a per_step function that will perform multiple XPS spectra.
+
+    This yields a plan that will set each value required to generate an XPS
+    spectra using the specs detector at IOS and then triggers the detector (and
+    any ancillary detectors) which executes the spectra for each spectra in
+    `spectra`.
+
+    Parameters
+    ----------
+    spectra : list
+        A list of (peak_name, parameters, settings) tuples with the
+        following parameters:
+
+        peak_name : str
+            The name to use for the stream.
+        parameters : dict
+            A dictionary mapping parameter names to values for the peak given
+            by peak_name.
+        settings : dict
+            A dictionary mapping ``ophyd.Device``s to values that need to be
+            set prior to the peak given by peak_name being acquired.
+    '''
+
+    def _per_step(detectors, step, pos_cache):
+        '''This triggers multiple spectra at each point in a plan.
+
+        This function is analagous to the `bluesky.plan_stubs.one_nd_step`
+        function and should be used instead of that via the kwarg
+        `per_step=multi_spectrum` in a call to any default plan except
+        count.
+
+        Parameters
+        ----------
+        detectors : list
+            a list of detectors to trigger at each point
+        step : dict
+            a dictionary mapping motors to values for this point in the
+            scan
+        pos_cache : dict
+            a dictionary mapping motors to their last-set positions.
+        '''
+        motors = step.keys()
+        # move any motors that the outer plan requires to be moved.
+        yield from move_per_step(step, pos_cache)
+
+        for (peak_name, parameters, settings) in spectra:
+            # move the devices in settings into place
+            yield from _move_from_dict(settings)
+
+            # set the parameters for the scan
+            yield from mv(specs.low_energy, parameters['low_energy'],
+                          specs.high_energy, parameters['high_energy'],
+                          specs.step_size, parameters['step_size'],
+                          specs.num_acquisitions, parameters['num_spectra'],
+                          specs.mode, 'xps',
+                          photon_energy, parameters['photon_energy'])
+            # perform the scan
+            yield from trigger_and_read(list(detectors)+list(motors),
+                                        name=peak_name)
+
+    return _per_step
+
+
 class FileDict():
     '''A class used for dictionaries loaded from Excel files.
 
@@ -101,12 +263,13 @@ class FileDict():
         A function that resets the dictionary and the filepath to the default
         values.
     '''
-    def __init__(self, name):
+    def __init__(self, name, default_filepath, index_name):
         self.name = name
         self.dictionary = {}
-        self._default_filepath = ''
-        self.filepath = ''
-        self._index_name = ''  # The name used as the index in the file
+        self._default_filepath = default_filepath
+        self.filepath = default_filepath
+        self._index_name = index_name  # The name used as the index in the file
+        self.reset_defaults()
 
     def load(self, filepath=None):
         '''Loads up a dictionary from a file
@@ -147,148 +310,35 @@ class FileDict():
         self.load()
 
 
-class MultiScan():
-    '''A class to be used for sequencing a scan list at IOS.
-
-    This class is intended to store and perform a scan, or a list of scans, as
-    referenced in  ``self.scanmap``. ``self.scanmap`` must have the keys
-    'dets', 'spectra_type' and 'interesting_edges', it may also contain the
-    keys 'plan' and 'arguments' to indicate a particular plan to call and what
-    args to include. Finally it may also contain keys which relate to any
-    'settable' ``ophyd.device`` (like 'manip.x') and a value to set it to.
-    These values will be set prior to the scan being performed.
-
-    Call Parameters
-    ---------------
-    scans : list or string
-        A scan, or list of scans, to execute. The scan_names must be a key in
-        ``self.scan_map``.
-
-    Initialization Parameters
-    -------------------------
-    scan_arguments : dict
-        A dictionary that maps scan types (count, scan,...) to the arguments
-        that each scan requires (kwargs assume default values, except for
-        ``per_step`` which is internally set.) This dictionary is set at
-        initialization time.
-    default_map_filepath : string or Path
-        The default filepath for the file containing the scan_map information.
-    map_index_name : str, optional
-        The name to use to index the data from the scanmap file, default is
-        ``scan_name``.
-
-    Attributes
-    ----------
-    scanmap : FileDict
-        A FileDict object that has an attribute, dictionary, that maps
-        scan names to scan types and parameters related to each scan to be
-        performed. It also has attributes for loading information into the dict
-        from a file.
-    scan_arguments : dict
-        A dictionary that maps scan types (count, scan,...) to an ordereddict
-        that maps the arguments that each scan requires to a type. Types can be
-        any ``type`` object or 'obj'. For all types but 'obj' the input will be
-        converted using the type (eg. str(val) ). For obj the val will be
-        passed to ``_str_2_obj``. Kwargs assume default values, except for
-        ``per_step`` which is internally set. This dictionary is set at
-        initialization time.
-    validate : func
-        A function that validates that a proposed scan can occur with the
-        currently loaded dictionaries.
-    '''
-    scanmap = FileDict('scanmap')
-
-    def __init__(self, scan_arguments, default_map_filepath, name,
-                 map_index_name='scan_name'):
-        self.scan_arguments = scan_arguments
-        self.name = name
-        self.scanmap._default_filepath = default_map_filepath
-        self.scanmap._index_name = map_index_name
-        self.scanmap.reset_defaults()
-
-    def _convert_arguments(self, plan, arguments):
-        '''converts the arguments value in scanmap to a useable list
-
-        Parameters
-        ----------
-        plan : str
-            The key to extract the type information from ``self.detectors``
-        arguments : list
-            The list of arguments extracted from ``self.scanmap.dictionary``
-
-        Returns
-        -------
-        args : list
-            A list of converted arguments ready to be fed to the plan.
-        '''
-        args = []
-
-        if type(arguments) == str:
-            arguments = arguments.split(',')
-        elif type(arguments) != list:
-            arguments = [arguments]
-
-        for i, (key, val) in enumerate(self.scan_arguments[plan].items()):
-            if type(val) == type:
-                args.append(val(arguments[i]))
-            elif type(val) == str and val == 'obj':
-                args.append(_str_to_obj(arguments[i]))
-            else:
-                raise MultiSpectraValueError(
-                    f'The value found in {self.name}.detectors[{key}] is not a'
-                    f' valid value. Valid values are any ``type`` object or '
-                    f'the string "obj"')
-        return args
-
-    def __call__(self, scans):
-        # check that scans is a list or a str, if a str convert to a list
-        if type(scans) == str:
-            scans = [scans]
-        elif type(scans) != list:
-            raise MultiSpectraValueError(
-                f'when calling ``{self.name}(scans)`` `scans` is expected'
-                f' to be a str or a list, instead we got {scans} which is of'
-                f' type {type(scans)}.')
-        # step through each of the requested scans and perform it.
-        for scan in scans:
-            scaninfo = self.scanmap.dictionary[scan]
-            dets = [_str_to_obj(det)
-                    for det in scaninfo['detectors'].split(',')]
-            args = self._convert_arguments(scaninfo['plan'],
-                                           scaninfo['arguments'])
-            per_step = ip.user_ns[scaninfo['spectra_type']](
-                scaninfo['interesting_edges'].split(','))
-            yield from ip.user_ns[scaninfo['plan']](dets, *args,
-                                                    per_step=per_step)
-
-
-class MultiSpectra():
-    '''A class that is used for the acquisition of 'spectra' at IOS
+class PlanSchedular():
+    '''A class that is used to schedule many plans and returns a single plan.
 
     This class is intended to store a set of dictionaries associated with
-    scans where multiple 'spectra' need to be taken at each step in a 'plan'.
-    It also is a callable function that returns a ``per_step`` function,
-    analogous to ``bluesky.plan_stubs.one_nd_step``. This plan can be used with
-    the ``per_step`` kwarg in any plan that accepts ``per_step`` kwargs.
+    multiple ``self.plan_factory`` function call. When called an instance of
+    this class takes in a list of 'items' and returns a plan that does the
+    following:
+
+    1. generate a list of ``(item, self.parameters.dictionary[item],
+        self.settings.dictionary[item])`` tuples from list `items`.
+    3. Calls ``self.function`` passing in the tuple list
+    4. Return the output plan.
 
     An instance of this class will have the following parameters and
     attributes:
 
     Call Parameters
     ---------------
-    spectra, str or list
-        The spectrum to perform, or a list of spectra to perform, at each
-        step of a scan. The names listed here must be present as keys in both
-        the ``self.parameters`` and ``self.settings`` dictionaries.
+    items : str or list
+        The item to perform or a list of items to perform  at each step of a
+        plan. The items listed here must be present as keys in both the
+        ``self.parameters.dictionary`` and ``self.settings,dictionary``. Using
+        the str 'all' will result in all keys from the two dictionaries being
+        used provided they both have exactly the same keys.
 
     Initialization Parameters
     -------------------------
-    detectors : dict
-        A dictionary that maps the detectors associated with this scan type to
-        a value that indicates if the detector is a '0D' detector, where
-        each trigger returns a single float or int, or a '1D' detector, where
-        each trigger returns a full spectrum. This dictionary is defined at
-        initialization time.
+    name : str
+        The name of the instantiated version of this class.
     default_parameters_filepath : str or Path
         The default filepath for the spectrum 'parameters' file.
     default_settings_filepath : str or Path
@@ -299,8 +349,6 @@ class MultiSpectra():
     settings_index_name : str
         The column name that indicates the 'index' in the settings file,
         default is 'edge_name'.
-    name : str, optional
-        The name of the instantiated version of this class.
 
     Attributes
     ----------
@@ -309,151 +357,73 @@ class MultiSpectra():
         (like 'C1s') to the parameters that define the spectrum, which are by
         definition 'low_energy', 'high_energy' and 'step_size'.
     settings : FileDict
-        A FileDict object with an attribute dictionary that maps spectrum names
-        (like 'C1s') to the parameters that need to be defined differently for
-        each spectrum. Examples might include items like 'det1.gain' or
-        'det1.exposure_time', but can include any 'settable' ``ophyd`` object.
-    detectors : dict
-        A dictionary that maps the detectors associated with this scan type to
-        an attribute associated with the keys from the ``self.parameters``
-        dict. For point-detectors (a single value for trigger) there should be
-        a single key in the detector sub-dictionary called 'spectra_axis' that
-        indicates the axis (eg. photon energy) for bluesky to scan with the
-        values from ``self.parameters``. This dictionary is defined at
-        instantiation time.
-    validate : func
-        A function that validates that a proposed scan can occur with the
+        A FileDict object with an attribute dictionary that maps 'items' to a
+        dictionary mapping the ``ophyd.Device``'s that need to be set for each
+        'item' to the value to set it to. Examples might include items like
+        'det1.gain' or 'det1.exposure_time', but can include any 'settable'
+        ``ophyd.Device`` object.
+    function : func
+        A function that is to be called at step 2 above.
+    validate : method
+        A method that validates that a proposed 'item' can be used with the
         currently loaded dictionaries.
     '''
 
-    parameters = FileDict('parameters')
-    settings = FileDict('settings')
-
-    def __init__(self, detectors, default_parameters_filepath,
-                 default_settings_filepath, name,
-                 parameters_index_name='edge_name',
-                 settings_index_name='edge_name'):
-        self.detectors = detectors
+    def __init__(self, name, function, default_parameters_filepath,
+                 default_settings_filepath, parameters_index_name,
+                 settings_index_name):
         self.name = name
-        self.parameters._default_filepath = default_parameters_filepath
-        self.settings._default_filepath = default_settings_filepath
-        self.settings._index_name = settings_index_name
-        self.parameters._index_name = parameters_index_name
-        self.parameters.reset_defaults()
-        self.settings.reset_defaults()
+        self.function = function
+        self.parameters = FileDict('parameters', default_parameters_filepath,
+                                   parameters_index_name)
+        self.settings = FileDict('settings', default_settings_filepath,
+                                 settings_index_name)
 
-    def __call__(self, spectra):
+    def __call__(self, items):
         # check that spectra is a list or a str, if a str convert to a list
-        if type(spectra) == str:
-            spectra = [spectra]
-        elif type(spectra) != list:
-            raise MultiSpectraValueError(
-                f'when calling ``{self.name}(spectra)`` `spectra` is expected'
-                f' to be a str or a list, instead we got {spectra} which is of'
-                f' type {type(spectra)}.')
+        if items == 'all':
+            items = list(self.settings.keys())
+        elif type(items) == str:
+            items = [items]
+        elif type(items) != list:
+            raise PlanSchedulerValueError(
+                f'The items passed to ``{self.name}(items)`` is expected to be'
+                f' a str or a list, instead we got {items} which is of type '
+                f'{type(items)}.')
 
-        # define the plan that results in a single 'spectra' being taken.
-        def _spectrum(detectors, motors, axis, stream_name):
-            '''returns a plan that will perform a single spectra.
+        # check that items are keys in the two dictionaries
+        if (not set(items) <= set(self.parameters.dictionary.keys())
+                or not set(items) <= set(self.settings.dictionary.keys())):
+            n1 = '\n'
+            t1 = '\t'
+            raise PlanSchedulerValueError(
+                f'The items passed to {self.name}(items) are not all keys in '
+                f'{self.name}.parameters.dictionary or {self.name}.settings.'
+                f'dictionary{n1}items are: {n1}{t1}{items}{n1}{self.name}.'
+                f'parameters.dictionary keys are:{n1}{t1}'
+                f'{self.parameters.dictionary.keys()}{n1}{self.name}.'
+                f'settings.dictionary keys are:{n1}{t1}'
+                f'{self.settings.dictionary.keys()}')
 
-            This steps through each value defined in ``self.parameters`` under
-            the key 'stream_name' along the axis defined in
-            'axis'.
+        # Generate the list of tuples
+        tuple_list = []
+        for item in items:
+            tuple_list.append((item, self.parameters.dictionary[item],
+                               self.settings.dictionary[item]))
 
-            Parameters
-            ----------
-            detectors, list
-                A list of detectors to trigger and read at each step.
-            motors : list
-                A list of the motors involved in the outer 'scan'.
-            axis : object
-                ``ophyd.Device`` object that defines the 'axis' to scan the
-                spectra over.
-            stream_name, str
-                The stream_name to use in trigger_and_read, also the name of
-                the key in ``self.settings`` and ``self.parameters``.
-            '''
+        # Call self.function
+        output = self.function(tuple_list)
 
-            parameters = self.parameters.dictionary[stream_name]
+        return output  # return the output of self.function
 
-            # set the required values in self.settings for this spectra
 
-            yield from _move_from_dict(self.settings.dictionary[stream_name])
+# define the PlanSchedular for the xps per_step function
+xps = PlanSchedular('xps', ios_xps_per_step_factory,
+                    'test_spectrum_parameters.xlsx',
+                    'test_spectrum_settings.xlsx', 'peak_name', 'peak_name')
 
-            # step through each step in the 'spectra' and record the results
-            for spectra_pos in numpy.arange(parameters['low_energy'],
-                                            (parameters['high_energy'] +
-                                             parameters['step_size']/2),
-                                            parameters['step_size']):
-                yield from mv(axis, spectra_pos)
-                yield from trigger_and_read(
-                    list(detectors) + list(motors) + [axis], name=stream_name)
 
-        # define the `per_step` function that is to be returned.
-        def _multi_spectrum(detectors, step, pos_cache):
-            '''This function is used to trigger multiple spectra at each point
-            in a scan.
-
-            This function is analagous to the `bluesky.plan_stubs.one_nd_step`
-            function and should be used instead of that via the kwarg
-            `per_step=multi_spectrum` in a call to any default plan except
-            count.
-
-            Parameters
-            ----------
-            detectors : list
-                a list of detectors to trigger at each point
-            step : dict
-                a dictionary mapping motors to values for this point in the
-                scan
-            pos_cache : dict
-                a dictionary mapping motors to their last-set positions.
-            '''
-            motors = step.keys()
-            # move to the required position
-            yield from move_per_step(step, pos_cache)
-
-            # determine if the each of the specifed detectors that are also in
-            # self.detectors take a spectra with a trigger or not:
-            spectra_dets = set(detectors).intersection(set(self.detectors))
-            if all('spectra_axis' in self.detectors[det].keys()
-                   for det in spectra_dets):  # if all spectra_dets are 0D
-                spectra_axes = [self.detectors[det]['spectra_axis']
-                                for det in spectra_dets]
-                spectra_axis = spectra_axes[0]
-                if all(val == spectra_axis for val in spectra_axes):
-                    for spectrum in spectra:  # step through + acquire spectra
-                        yield from _spectrum(detectors, motors,
-                                             spectra_axis, spectrum)
-                else:
-                    raise MultiSpectraValueError(
-                        f'The "spectra_axis" kwarg in {self.name}.detectors '
-                        f'returns {spectra_axes} for the detectors '
-                        f'{spectra_dets}. However, the "spectra_axis" should '
-                        f'be the same for all.')
-            elif all('low_energy' in self.detectors[det].keys()
-                     for det in spectra_dets):  # if all spectra_dets are 1D
-                for spectrum in spectra:  # step through and acquire spectra
-                    # set the required values in self.settings for this spectra
-                    yield from _move_from_dict(
-                        self.settings.dictionary[spectrum])
-                    # set the required values in self.detectors[det]
-                    for det in spectra_dets:
-                        yield from _move_from_dict(
-                            {self.detectors[det].get(k, k): v
-                             for k, v in self.parameters.dictionary.items()})
-                    # trigger and read each spectra.
-                    yield from trigger_and_read(list(detectors)+list(motors),
-                                                name=spectrum)
-            else:
-                spectra_det_keys = {det.name: self.detectors[det].keys()
-                                    for det in spectra_dets}
-                raise MultiSpectraValueError(
-                    f'In ``multispectra._multi_spectrum`` it is expected that '
-                    f' each of the requested detectors that are included in '
-                    f'{self.name}.detectors also have either "spectra_axis" '
-                    f'or the group ["low_energy", "high_energy", "step_size"] '
-                    f'as keys. The detectors fitting this description have the'
-                    f' the following keys: {spectra_det_keys}')
-
-        return _multi_spectrum  # return the `per_step` function
+# define the PlanScheduler for the scans
+multiscan = PlanSchedular('multiscan', ios_multiscan_plan_factory,
+                          'test_scan_parameters.xlsx',
+                          'test_scan_settings.xlsx', 'scan_name', 'scan_name')
