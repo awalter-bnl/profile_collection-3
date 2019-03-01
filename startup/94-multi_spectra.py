@@ -56,9 +56,7 @@ def _str_to_obj(str_ref):
     '''
     parent, _, attrs = str_ref.partition('.')
     obj = ip.user_ns[parent]
-    for attr in attrs.split('.'):
-        if attr != '':
-            obj = getattr(obj, attr)
+    obj = getattr(obj, attrs)
     return obj
 
 
@@ -73,7 +71,7 @@ def _move_from_dict(move_dict):
 
     Parameters
     ----------
-    move_dict, dict
+    move_dict, Dict[obj, value]
         A dictionary mapping ``ophyd.Device``s to be moved to positions
         to move to. See above for a description of this dictionary.
     '''
@@ -82,7 +80,7 @@ def _move_from_dict(move_dict):
         obj = _str_to_obj(key)
         settings_list.extend([obj, value])
 
-    yield from mv(*settings_list)
+    return (yield from mv(*settings_list))
 
 
 # define the plan that results in multiple 'scans' being performed at each step
@@ -134,15 +132,15 @@ def ios_multiscan_plan_factory(scans):
         '''
         args = []
 
-        if type(arguments) == str:
+        if isinstance(arguments, str):
             arguments = arguments.split(',')
-        elif type(arguments) != list:
+        elif not isinstance(arguments, list):
             arguments = [arguments]
 
         for i, (key, val) in enumerate(plan_arguments[plan].items()):
-            if type(val) == type:
+            if isinstance(val, type):
                 args.append(val(arguments[i]))
-            elif type(val) == str and val == 'obj':
+            elif isinstance(val, str) and val == 'obj':
                 args.append(_str_to_obj(arguments[i]))
             else:
                 raise PlanSchedulerValueError(
@@ -155,12 +153,8 @@ def ios_multiscan_plan_factory(scans):
     # step through each of the requested scans and perform it.
     for (scan_name, parameters, settings) in scans:
         # check if a plan and arguments are given, use 'count' if not.
-        try:
-            plan = parameters['plan']
-            arguments = parameters['arguments']
-        except KeyError:
-            plan = 'count'
-            arguments = []
+        plan = parameters.get('plan', 'count')
+        arguments = parameters.get('arguments', [])
 
         # move to the predefined positions for this scan
         yield from _move_from_dict(settings)
@@ -244,7 +238,7 @@ def ios_xps_per_step_factory(spectra):
 
 # define the plan that results in multiple 'xas_step' spectra being taken
 # per_step.
-def ios_xas_step_per_step_factory(spectra):
+def ios_xas_step_per_step_factory(*spectra):
     '''returns a per_step function that will perform multiple XAS spectra.
 
     This yields a per_step function that will set each value required to
@@ -440,9 +434,9 @@ class PlanSchedular():
         currently loaded dictionaries.
     '''
 
-    def __init__(self, name, function, default_parameters_filepath,
-                 default_settings_filepath, parameters_index_name,
-                 settings_index_name):
+    def __init__(self, name, function,
+                 default_parameters_filepath, parameters_index_name,
+                 default_settings_filepath, settings_index_name):
         self.name = name
         self.function = function
         self.parameters = FileDict('parameters', default_parameters_filepath,
@@ -454,33 +448,29 @@ class PlanSchedular():
         # check that spectra is a list or a str, if a str convert to a list
         if items == 'all':
             items = list(self.settings.keys())
-        elif type(items) == str:
+        elif isinstance(items, str):
             items = [items]
-        elif type(items) != list:
+        elif not isinstance(items, list):
             raise PlanSchedulerValueError(
                 f'The items passed to ``{self.name}(items)`` is expected to be'
                 f' a str or a list, instead we got {items} which is of type '
                 f'{type(items)}.')
 
         # check that items are keys in the two dictionaries
-        if (not set(items) <= set(self.parameters.dictionary.keys())
-                or not set(items) <= set(self.settings.dictionary.keys())):
-            n1 = '\n'
-            t1 = '\t'
+        if (not set(items) <= set(self.parameters.dictionary)
+                or not set(items) <= set(self.settings.dictionary)):
             raise PlanSchedulerValueError(
                 f'The items passed to {self.name}(items) are not all keys in '
                 f'{self.name}.parameters.dictionary or {self.name}.settings.'
-                f'dictionary{n1}items are: {n1}{t1}{items}{n1}{self.name}.'
-                f'parameters.dictionary keys are:{n1}{t1}'
-                f'{self.parameters.dictionary.keys()}{n1}{self.name}.'
-                f'settings.dictionary keys are:{n1}{t1}'
+                f'dictionary\nitems are: \n\t{items}\n{self.name}.'
+                f'parameters.dictionary keys are:\n\t'
+                f'{self.parameters.dictionary.keys()}\n{self.name}.'
+                f'settings.dictionary keys are:\n\t'
                 f'{self.settings.dictionary.keys()}')
 
         # Generate the list of tuples
-        tuple_list = []
-        for item in items:
-            tuple_list.append((item, self.parameters.dictionary[item],
-                               self.settings.dictionary[item]))
+        tuple_list = [(k, self.parameters.dictionary[k],
+                       self.settings.dictionary[k]) for k in items]
 
         # Call self.function
         output = self.function(tuple_list)
