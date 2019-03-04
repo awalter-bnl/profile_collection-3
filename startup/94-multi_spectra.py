@@ -26,6 +26,12 @@ class PlanSchedulerValueError(ValueError):
 from ophyd.sim import hw
 from bluesky.plans import count, scan
 from bluesky.simulators import summarize_plan
+
+
+def ERamp(dets, start, stop, velocity, streamname='primary'):
+    yield from count(dets)
+
+
 hw = hw()
 specs = hw.det2
 specs.name = 'specs'
@@ -79,7 +85,8 @@ def _str_to_obj(str_ref):
     '''
     parent, _, attrs = str_ref.partition('.')
     obj = ip.user_ns[parent]
-    obj = getattr(obj, attrs)
+    if attrs:
+        obj = getattr(obj, attrs)
     return obj
 
 
@@ -175,8 +182,6 @@ def ios_multiscan_plan_factory(scans):
 
     # step through each of the requested scans and perform it.
     for (scan_name, parameters, settings) in scans:
-        # set the group number to zero
-        yield from mv(group_num, 0)
         # check if a plan and arguments are given, use 'count' if not.
         plan = parameters.get('plan', 'count')
         arguments = parameters.get('arguments', [])
@@ -197,17 +202,15 @@ def ios_multiscan_plan_factory(scans):
         _per_step = spectra_obj(spectra_list)
 
         def _group_step(detectors, step, pos_cache):
-            # update the step number
-            yield from mv(step_num, step_num.get()+1)
-            extra_dets = [step_num]
+            extra_dets = []
             # add ``group_num`` to the extra_dets list if needed
             if parameters['num_groups'] is None:
-                num_groups = 1
+                parameters['num_groups'] = 1
             elif parameters['num_groups'] > 1:
                 extra_dets.append(group_num)
             # collect num_spectra individual spectra at this point.
-            for num_group in range(1, num_groups+1):
-                if 'num_groups' in extra_dets:  # update group_num if needed
+            for num_group in range(1, parameters['num_groups']+1):
+                if group_num in extra_dets:  # update group_num if needed
                     yield from mv(group_num, num_group)
                 yield from _per_step(detectors+extra_dets, step, pos_cache)
 
@@ -222,11 +225,10 @@ def ios_multiscan_plan_factory(scans):
         for scan_num in range(parameters['num_scans']):
             yield from ip.user_ns[plan](dets, *args, per_step=_group_step,
                                         md=md)
-            yield from mv(step_num, 0)  # resets the step_num counter
 
 
 # define the plan that results in multiple 'xps' spectra being taken per_step.
-def ios_xps_per_step_factory(*spectra):
+def ios_xps_per_step_factory(spectra):
     '''returns a per_step function that will perform multiple XPS spectra.
 
     This yields a per_step function that will set each value required to
@@ -249,7 +251,6 @@ def ios_xps_per_step_factory(*spectra):
             A dictionary mapping ``ophyd.Device``s to values that need to be
             set prior to the peak given by peak_name being acquired.
     '''
-
     def _per_step(detectors, step, pos_cache):
         '''This triggers multiple spectra at each point in a plan.
 
@@ -293,7 +294,7 @@ def ios_xps_per_step_factory(*spectra):
 
 # define the plan that results in multiple 'xas' spectra being taken per_step
 # using a 'flyscan' over the photon energy axis.
-def ios_xas_flyspectra_per_step_factory(*spectra):
+def ios_xas_flyspectra_per_step_factory(spectra):
     '''returns a per_step function that will perform multiple XAS spectra.
 
     This yields a per_step function that will set each value required to
@@ -348,18 +349,18 @@ def ios_xas_flyspectra_per_step_factory(*spectra):
             extra_dets = []
             # add ``spectra_num`` to the extra_dets list if needed
             if parameters['num_spectra'] is None:
-                num_spectra = 1
+                parameters['num_spectra'] = 1
             elif parameters['num_spectra'] > 1:
                 extra_dets.append(spectra_num)
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
-                if num_spectra in extra_dets:  # update spectra_num if needed
+                if spectra_num in extra_dets:  # update spectra_num if needed
                     yield from mv(spectra_num, num_spectra)
                 # perform the fly scan
                 yield from stub_wrapper(
-                    ERamp(list(detectors)+list(motors)+[pgm.Energy]+extra_dets,
-                          parameters['start'],
-                          parameters['stop'],
+                    ERamp(list(detectors)+list(motors)+[pgm.energy]+extra_dets,
+                          parameters['low_energy'],
+                          parameters['high_energy'],
                           parameters['velocity'],
                           streamname=edge_name))
     return _per_step
@@ -367,7 +368,7 @@ def ios_xas_flyspectra_per_step_factory(*spectra):
 
 # define the plan that results in multiple 'xas_step' spectra being taken
 # per_step.
-def ios_xas_stepspectra_per_step_factory(*spectra):
+def ios_xas_stepspectra_per_step_factory(spectra):
     '''returns a per_step function that will perform multiple XAS spectra.
 
     This returns a per_step function, and a metadata dict that will set each
@@ -419,21 +420,21 @@ def ios_xas_stepspectra_per_step_factory(*spectra):
             extra_dets = []
             # add ``spectra_num`` to the extra_dets list if needed
             if parameters['num_spectra'] is None:
-                num_spectra = 1
+                parameters['num_spectra'] = 1
             elif parameters['num_spectra'] > 1:
                 extra_dets.append(spectra_num)
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
-                if num_spectra in extra_dets:  # update spectra_num if needed
-
-                    for energy in numpy.arange(parameters['low_energy'],
-                                               parameters['high_energy'] +
-                                               parameters['step_size']/2,
-                                               parameters['step_size']):
-                        yield from mv(pgm.energy, energy)
-                        yield from trigger_and_read(
-                            list(detectors)+list(motors)+[pgm.energy],
-                            name=edge_name)
+                if spectra_num in extra_dets:  # update spectra_num if needed
+                    yield from mv(spectra_num, num_spectra)
+                for energy in numpy.arange(parameters['low_energy'],
+                                           parameters['high_energy'] +
+                                           parameters['step_size']/2,
+                                           parameters['step_size']):
+                    yield from mv(pgm.energy, energy)
+                    yield from trigger_and_read(
+                        list(detectors)+list(motors)+[pgm.energy]+extra_dets,
+                        name=edge_name)
 
     return _per_step
 
