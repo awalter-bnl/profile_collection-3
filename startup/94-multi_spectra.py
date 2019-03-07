@@ -18,13 +18,13 @@ class MultiSpectraValueError(ValueError):
     ...
 
 
-class PlanSchedulerValueError(ValueError):
+class FileDataRouterValueError(ValueError):
     ...
 
 
 # This section is some temporary test objects
 from ophyd.sim import hw
-from bluesky.plans import count, scan
+from bluesky.plans import count, scan, grid_scan
 from bluesky.simulators import summarize_plan
 
 
@@ -65,6 +65,7 @@ pgm = Pgm('pgm')
 motor = hw.motor
 motor1 = hw.motor1
 motor2 = hw.motor2
+motor3 = hw.motor3
 det = hw.det
 
 # above are the temporary objects for testing.
@@ -145,6 +146,9 @@ def ios_multiscan_plan_factory(scans):
     # will be passed to ``_str_2_obj``. Kwargs assume default values.
     plan_arguments = {
         'scan': {'motor1': 'obj', 'start1': float, 'stop1': float, 'num': int},
+        'grid_scan' :{'motor1': 'obj', 'start1': float, 'stop1': float,
+                      'num1':int, 'motor2': 'obj', 'start2': float,
+                      'stop2': float, 'num2': int, 'snake': bool},
         'count': {}}
 
     def _convert_arguments(plan, arguments):
@@ -175,7 +179,7 @@ def ios_multiscan_plan_factory(scans):
             elif isinstance(val, str) and val == 'obj':
                 args.append(_str_to_obj(arguments[i]))
             else:
-                raise PlanSchedulerValueError(
+                raise FileDataRouterValueError(
                     f'The value found from plan_arguments[{key}] in '
                     f'"ios_multi_scan_plan_factory" is not a valid value.'
                     f'Valid values are any ``type`` object or the string "obj"'
@@ -601,7 +605,7 @@ class FileDataRouter():
         # check that items are keys in the two dictionaries
         if (not set(items) <= set(self.parameters.dictionary)
                 or not set(items) <= set(self.settings.dictionary)):
-            raise PlanSchedulerValueError(
+            raise FileDataRouterValueError(
                 f'The items passed to {self.name}(items) are not all keys in '
                 f'{self.name}.parameters.dictionary or {self.name}.settings.'
                 f'dictionary\nitems are: \n\t{items}\n{self.name}.'
@@ -620,19 +624,19 @@ class FileDataRouter():
         return output  # return the output of self.function
 
 
-# define the PlanSchedular for the xps per_step function
+# define the FileDataRouter for the xps per_step function
 xps = FileDataRouter('xps', ios_xps_per_step_factory,
                      'test_spectrum_parameters.xlsx', 'peak_name',
                      'test_spectrum_settings.xlsx', 'peak_name')
 
 
-# define the PlanSchedular for the xas step per_step function
+# define the FileDataRouter for the xas step per_step function
 xas_step = FileDataRouter('xas_step', ios_xas_stepspectra_per_step_factory,
                           'test_xas_spectrum_parameters.xlsx', 'edge_name',
                           'test_xas_spectrum_settings.xlsx', 'edge_name')
 
 
-# define the PlanSchedular for the xas fly per_step function
+# define the FileDataRouter for the xas fly per_step function
 xas_fly = FileDataRouter('xas_fly', ios_xas_flyspectra_per_step_factory,
                          'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
                          'test_xas_fly_spectrum_settings.xlsx', 'edge_name')
