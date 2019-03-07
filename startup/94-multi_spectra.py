@@ -67,6 +67,8 @@ motor1 = hw.motor1
 motor2 = hw.motor2
 det = hw.det
 
+# above are the temporary objects for testing.
+
 
 def _str_to_obj(str_ref):
     '''Converts a string ref to an ``ophyd.Device`` object to an reference.
@@ -511,7 +513,7 @@ class FileDict():
         self.load()
 
 
-class PlanSchedular():
+class FileDataRouter():
     '''A class that is used to schedule many plans and returns a single plan.
 
     This class is intended to store a set of dictionaries associated with
@@ -592,6 +594,10 @@ class PlanSchedular():
                 f' a str or a list, instead we got {items} which is of type '
                 f'{type(items)}.')
 
+        # reload the files to make sure any saved chagnes are found
+        self.settings.load()
+        self.parameters.load()
+
         # check that items are keys in the two dictionaries
         if (not set(items) <= set(self.parameters.dictionary)
                 or not set(items) <= set(self.settings.dictionary)):
@@ -615,24 +621,24 @@ class PlanSchedular():
 
 
 # define the PlanSchedular for the xps per_step function
-xps = PlanSchedular('xps', ios_xps_per_step_factory,
-                    'test_spectrum_parameters.xlsx', 'peak_name',
-                    'test_spectrum_settings.xlsx', 'peak_name')
+xps = FileDataRouter('xps', ios_xps_per_step_factory,
+                     'test_spectrum_parameters.xlsx', 'peak_name',
+                     'test_spectrum_settings.xlsx', 'peak_name')
 
 
 # define the PlanSchedular for the xas step per_step function
-xas_step = PlanSchedular('xas_step', ios_xas_stepspectra_per_step_factory,
-                         'test_xas_spectrum_parameters.xlsx', 'edge_name',
-                         'test_xas_spectrum_settings.xlsx', 'edge_name')
+xas_step = FileDataRouter('xas_step', ios_xas_stepspectra_per_step_factory,
+                          'test_xas_spectrum_parameters.xlsx', 'edge_name',
+                          'test_xas_spectrum_settings.xlsx', 'edge_name')
 
 
 # define the PlanSchedular for the xas fly per_step function
-xas_fly = PlanSchedular('xas_fly', ios_xas_flyspectra_per_step_factory,
-                        'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
-                        'test_xas_fly_spectrum_settings.xlsx', 'edge_name')
+xas_fly = FileDataRouter('xas_fly', ios_xas_flyspectra_per_step_factory,
+                         'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
+                         'test_xas_fly_spectrum_settings.xlsx', 'edge_name')
 
 
 # define the PlanScheduler for the scans
-multiscan = PlanSchedular('multiscan', ios_multiscan_plan_factory,
-                          'test_scan_parameters.xlsx', 'scan_name',
-                          'test_scan_settings.xlsx', 'scan_name')
+multiscan = FileDataRouter('multiscan', ios_multiscan_plan_factory,
+                           'test_scan_parameters.xlsx', 'scan_name',
+                           'test_scan_settings.xlsx', 'scan_name')
