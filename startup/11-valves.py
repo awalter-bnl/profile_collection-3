@@ -113,5 +113,6 @@ class TwoButtonShutter(Device):
         self._set_st = None
         self.read_attrs = ['status']
 
+fe_shutter = TwoButtonShutter('XF:23ID-PPS{Sh:FE}', name='fe_shutter')
 ds_shutter = TwoButtonShutter('XF:23ID2-PPS{PSh}', name='ds_shutter')
 us_shutter = TwoButtonShutter('XF:23ID2-PPS:2{PSh}', name='us_shutter')

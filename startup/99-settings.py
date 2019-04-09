@@ -4,9 +4,20 @@ import json
 import bluesky.plans as bp
 import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
+from bluesky.suspenders import SuspendBoolHigh
 import uuid
 from cycler import cycler
 import pandas as pd
+
+
+# Add suspender for shutter
+# Note: to clear suspenders use RE.clear_suspenders()
+suspend_fe_shutter = SuspendBoolHigh(EpicsSignalRO('XF:23ID-PPS{Sh:FE}Pos-Sts'))
+RE.install_suspender(suspend_fe_shutter)
+
+suspend_ds_shutter = SuspendBoolHigh(EpicsSignalRO('XF:23ID2-PPS{PSh}Pos-Sts'))
+RE.install_suspender(suspend_ds_shutter)
+
 
 def relabel_fig(fig, new_label):
     fig.set_label(new_label)
