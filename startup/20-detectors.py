@@ -122,20 +122,20 @@ sclr.channels.read_attrs = ['chan2', 'chan3', 'chan4']
 
 # Saturn interface for Vortex MCA detector
 
-##vortex = Vortex('XF:23ID2-ES{Vortex}', name='vortex')
-##for channel in ['mca.rois.roi4.count','mca.rois.roi3.count']:
-##    getattr(vortex, channel).kind = 'hinted'
+vortex = Vortex('XF:23ID2-ES{Vortex}', name='vortex')
+for channel in ['mca.rois.roi4.count','mca.rois.roi3.count']:
+    getattr(vortex, channel).kind = 'hinted'
 
 
 #vortex.read_attrs = ['mca.spectrum', 'mca.preset_live_time']
 #vortex.read_attrs = ['mca.spectrum', 'mca.preset_live_time', 'mca.rois']
-##vortex.read_attrs = ['mca.spectrum', 'mca.rois']
+vortex.read_attrs = ['mca.spectrum', 'mca.rois']
 #vortex.read_attrs = ['mca.rois']
-##vortex.mca.read_attrs.append('rois')
-##vortex.mca.rois.read_attrs = ['roi0','roi1','roi2','roi3','roi4']
-##vortex.vortex.energy_threshold.tolerance = .005
-##vortex.configuration_attrs = ['vortex.peaking_time', 'mca.preset_real_time', 'vortex.energy_threshold', 'mca.rois.roi4.hi_chan',
-##                              'mca.rois.roi4.lo_chan']
+vortex.mca.read_attrs.append('rois')
+vortex.mca.rois.read_attrs = ['roi0','roi1','roi2','roi3','roi4']
+vortex.vortex.energy_threshold.tolerance = .005
+vortex.configuration_attrs = ['vortex.peaking_time', 'mca.preset_real_time', 'vortex.energy_threshold', 'mca.rois.roi4.hi_chan',
+                              'mca.rois.roi4.lo_chan']
 #gs.TABLE_COLS = ['vortex_mca_rois_roi4_count']; gs.PLOT_Y = 'vortex_mca_rois_roi4_count'
 
 ring_curr = EpicsSignal('XF:23ID-SR{}I-I', name='ring_curr')
@@ -144,7 +144,7 @@ norm_ch4 = EpicsSignal('XF:23ID2-ES{Sclr:1}_calc5.VAL', name='norm_ch4')
 sclr_time = EpicsSignal('XF:23ID2-ES{Sclr:1}.TP', name='sclr_time')
 
 DETS = [sclr, norm_ch4, ring_curr]
-#DETS_V =  [sclr, norm_ch4, ring_curr, vortex]
+DETS_V =  [sclr, norm_ch4, ring_curr, vortex]
 
 sample_sclr_gain = EpicsSignal('XF:23ID2-ES{CurrAmp:3}Gain:Val-SP', name='sample_sclr_gain', string=True)
 sample_sclr_decade = EpicsSignal('XF:23ID2-ES{CurrAmp:3}Gain:Decade-SP', name='sample_sclr_decade', string=True)
