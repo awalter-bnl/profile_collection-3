@@ -24,6 +24,7 @@ class FileDataRouterValueError(ValueError):
 
 # This section is some temporary test objects
 from ophyd.sim import hw
+from bluesky.plan_stubs import sleep
 from bluesky.plans import count, scan, grid_scan
 from bluesky.simulators import summarize_plan
 
@@ -60,6 +61,8 @@ class Pgm():
         self.energy = Signal(name='pgm_energy')
         self.name = name
 
+    def reset_fbl(self, *args, **kwargs):
+        yield from sleep(10)
 
 pgm = Pgm('pgm')
 motor = hw.motor
