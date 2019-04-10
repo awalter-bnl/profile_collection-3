@@ -146,8 +146,8 @@ def ios_multiscan_plan_factory(scans):
     # will be passed to ``_str_2_obj``. Kwargs assume default values.
     plan_arguments = {
         'scan': {'motor1': 'obj', 'start1': float, 'stop1': float, 'num': int},
-        'grid_scan' :{'motor1': 'obj', 'start1': float, 'stop1': float,
-                      'num1':int, 'motor2': 'obj', 'start2': float,
+        'grid_scan': {'motor1': 'obj', 'start1': float, 'stop1': float,
+                      'num1': int, 'motor2': 'obj', 'start2': float,
                       'stop2': float, 'num2': int, 'snake': bool},
         'count': {}}
 
@@ -283,6 +283,14 @@ def ios_xps_per_step_factory(spectra):
             # move the devices in settings into place
             yield from _move_from_dict(settings)
 
+            # reset the photon energy and the feedback loop for the given
+            # spectra
+            yield from pgm.reset_fbl(
+                parameters['alignment_energy'],
+                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_input_offset=parameters['epu_input_offset'],
+                fbl_setpoint=parameters['fbl_setpoint'])
+
             # set the parameters for the scan
             yield from mv(specs.low_energy, parameters['low_energy'],
                           specs.high_energy, parameters['high_energy'],
@@ -358,6 +366,15 @@ def ios_xas_flyspectra_per_step_factory(spectra):
                 parameters['num_spectra'] = 1
             elif parameters['num_spectra'] > 1:
                 extra_dets.append(spectra_num)
+
+            # reset the photon energy and the feedback loop for the given
+            # spectra
+            yield from pgm.reset_fbl(
+                parameters['alignment_energy'],
+                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_input_offset=parameters['epu_input_offset'],
+                fbl_setpoint=parameters['fbl_setpoint'])
+
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
                 if spectra_num in extra_dets:  # update spectra_num if needed
@@ -429,6 +446,15 @@ def ios_xas_stepspectra_per_step_factory(spectra):
                 parameters['num_spectra'] = 1
             elif parameters['num_spectra'] > 1:
                 extra_dets.append(spectra_num)
+
+            # reset the photon energy and the feedback loop for the given
+            # spectra
+            yield from pgm.reset_fbl(
+                parameters['alignment_energy'],
+                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_input_offset=parameters['epu_input_offset'],
+                fbl_setpoint=parameters['fbl_setpoint'])
+
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
                 if spectra_num in extra_dets:  # update spectra_num if needed
@@ -593,7 +619,7 @@ class FileDataRouter():
         elif isinstance(items, str):
             items = [items]
         elif not isinstance(items, list):
-            raise PlanSchedulerValueError(
+            raise FileDataRouterValueError(
                 f'The items passed to ``{self.name}(items)`` is expected to be'
                 f' a str or a list, instead we got {items} which is of type '
                 f'{type(items)}.')

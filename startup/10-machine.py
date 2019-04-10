@@ -45,6 +45,7 @@ class Interpolator(Device):
     output_deadband = Cpt(EpicsSignal, 'Val:DBand1-SP')
     output_drive = Cpt(EpicsSignalRO, 'Val:OutDrv1-I')
     interpolation_status = Cpt(EpicsSignalRO, 'Sts:Interp1-Sts', string=True)
+    table = Cpt(EpicsSignal, 'Val:Table-Sel', name='table')
 
 
 class EPU1(Device):
