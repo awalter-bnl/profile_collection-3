@@ -312,7 +312,9 @@ def ios_multiscan_plan_factory(scans):
                 load_dictionary(spectra_obj.settings,
                                 spectra_obj.defaults._settings_index)[k])}
             for k in spectra_list}
-        md['scan'] = {'settings': settings, 'parameters': parameters}
+        md['scan'] = {'settings': _sanitize_dict(settings),
+                      'parameters': _sanitize_dict(parameters)}
+
         # yield from the required plan, num_scans times.
         for scan_num in range(parameters['num_scans']):
             yield from ip.user_ns[plan](dets, *args, per_step=_group_step,
