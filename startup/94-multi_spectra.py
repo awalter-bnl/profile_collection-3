@@ -258,6 +258,20 @@ def ios_multiscan_plan_factory(scans):
             set prior to the scan given by scan_name being acquired.
     '''
 
+    def _sanitize_dict(d):
+        '''replace all periods in the dict with '_' for json compatibility
+        '''
+        new = {}
+        for k, v in d.items():
+            if isinstance(v, dict):
+                v = _sanitize_dict(v)
+            if type(k) is str:
+                k = k.replace('.', '_')
+            if type(v) is str:
+                v = v.replace('.', '_')
+            new[k] = v
+        return new
+
     # step through each of the requested scans and perform it.
     for (scan_name, parameters, settings) in scans:
         # check if a plan and arguments are given, use 'count' if not.
@@ -289,13 +303,14 @@ def ios_multiscan_plan_factory(scans):
                 yield from _per_step(detectors+extra_dets, step, pos_cache)
 
         # extract out the spectra meta-data
-        md = {'spectra': {}}
+        md = {}
         md['spectra'] = {
-            k: {'parameters': load_dictionary(
-                spectra_obj.parameters,
-                spectra_obj.defaults._parameters_index)[k],
-                'settings': load_dictionary(
-                spectra_obj.settings, spectra_obj.defaults._settings_index)[k]}
+            k: {'parameters': _sanitize_dict(
+                load_dictionary(spectra_obj.parameters,
+                                spectra_obj.defaults._parameters_index)[k]),
+                'settings': _sanitize_dict(
+                load_dictionary(spectra_obj.settings,
+                                spectra_obj.defaults._settings_index)[k])}
             for k in spectra_list}
         md['scan'] = {'settings': settings, 'parameters': parameters}
         # yield from the required plan, num_scans times.
