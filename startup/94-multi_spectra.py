@@ -122,6 +122,119 @@ def _move_from_dict(move_dict):
     return (yield from mv(*settings_list))
 
 
+def ios_multiscan_plan_factory_wrapper(scans):
+    '''Returns a plan that will perform multiple scans in order.
+
+    This generates a plan to set each value required to generate a scan at IOS
+    for each scan in 'scans', it is a wrapper around ios_multiscan_plan_factory
+    which parses the plan arguments string loaded from the excell file first.
+
+    Parameters
+    ----------
+    scans : list
+        A list of (scan_name, parameters, settings) tuples with the
+        following parameters:
+
+        scan_name : str
+            The name of the scan to perform.
+        parameters : dict
+            A dictionary mapping parameter names to values for the scan given
+            by scan_name.
+        settings : dict
+            A dictionary mapping ``ophyd.Device``s to values that need to be
+            set prior to the scan given by scan_name being acquired.
+    '''
+
+    def _parse_plan_arguments(scans):
+        '''Parses the scan arguments and detectors loaded from the excell file.
+
+        Returns a parsed version of ``scans`` where ``parameters['arguments']``
+        is converted from a string to an argument list and
+        ``parameters['detectors']`` is converted into ophyd objects.
+
+        Parameters
+        ----------
+        scans : list
+            A list of (scan_name, parameters, settings) tuples with the
+            following parameters:
+
+            scan_name : str
+                The name of the scan to perform.
+            parameters : dict
+                A dictionary mapping parameter names to values for the scan
+                given by scan_name.
+            settings : dict
+                A dictionary mapping ``ophyd.Device``s to values that need to
+                be set prior to the scan given by scan_name being acquired.
+        '''
+
+        # Below is a dictionary that maps scan types (count, scan,...) to a
+        # dictionary that maps the arguments that each scan requires to a type.
+        # Types can be any ``type`` object or 'obj'. For all types but 'obj'
+        # the input will be converted using the type (eg. str(val) ). For obj
+        # the val will be passed to ``_str_2_obj``. Kwargs assume default
+        # values.
+        plan_arguments = {
+            'scan': {'motor1': 'obj', 'start1': float, 'stop1': float,
+                     'num': int},
+            'grid_scan': {'motor1': 'obj', 'start1': float, 'stop1': float,
+                          'num1': int, 'motor2': 'obj', 'start2': float,
+                          'stop2': float, 'num2': int, 'snake': bool},
+            'count': {}}
+
+        def _convert_arguments(plan, arguments):
+            '''Converts the arguments value in scanmap to a usable list.
+
+            Parameters
+            ----------
+            plan : str
+                The key to extract the type information from plan_arguments.
+            arguments : list
+                The list of arguments extracted from the excell spreadsheet
+
+            Returns
+            -------
+            args : list
+                A list of converted arguments ready to be fed to the plan.
+            '''
+            args = []
+
+            if isinstance(arguments, str):
+                arguments = arguments.split(',')
+            elif not isinstance(arguments, list):
+                arguments = [arguments]
+
+            for i, (key, val) in enumerate(plan_arguments[plan].items()):
+                if isinstance(val, type):
+                    args.append(val(arguments[i]))
+                elif isinstance(val, str) and val == 'obj':
+                    args.append(_str_to_obj(arguments[i]))
+                else:
+                    raise FileDataRouterValueError(
+                        f'The value found from plan_arguments[{key}] in '
+                        f'"ios_multi_scan_plan_factory" is not a valid value.'
+                        f'Valid values are any ``type`` object or the string '
+                        f'"obj"'
+                        )
+            return args
+
+        parsed_scans = []
+
+        for (scan_name, parameters, settings) in scans:
+            # parse the plan arguments
+            parameters['arguments'] = _convert_arguments(
+                parameters.get('plan', 'count'),
+                parameters.get('arguments', []))
+            # convert detectors to a list of ``ophyd.Device`` objects.
+            parameters['detectors'] = [
+                _str_to_obj(det) for det in parameters['detectors'].split(',')]
+            parsed_scans.append((scan_name, parameters, settings))
+
+        return parsed_scans
+
+    yield from ios_multiscan_plan_factory(_parse_plan_arguments(scans))
+
+
 # define the plan that results in multiple 'scans' being performed at each step
 def ios_multiscan_plan_factory(scans):
     '''Returns a plan that will perform multiple scans in order.
@@ -145,67 +258,16 @@ def ios_multiscan_plan_factory(scans):
             set prior to the scan given by scan_name being acquired.
     '''
 
-    # Below is a dictionary that maps scan types (count, scan,...) to a
-    # dictionary that maps the arguments that each scan requires to a type.
-    # Types can be any ``type`` object or 'obj'. For all types but 'obj' the
-    # input will be converted using the type (eg. str(val) ). For obj the val
-    # will be passed to ``_str_2_obj``. Kwargs assume default values.
-    plan_arguments = {
-        'scan': {'motor1': 'obj', 'start1': float, 'stop1': float, 'num': int},
-        'grid_scan': {'motor1': 'obj', 'start1': float, 'stop1': float,
-                      'num1': int, 'motor2': 'obj', 'start2': float,
-                      'stop2': float, 'num2': int, 'snake': bool},
-        'count': {}}
-
-    def _convert_arguments(plan, arguments):
-        '''Converts the arguments value in scanmap to a usable list.
-
-        Parameters
-        ----------
-        plan : str
-            The key to extract the type information from ``self.detectors``
-        arguments : list
-            The list of arguments extracted from ``self.scanmap.dictionary``
-
-        Returns
-        -------
-        args : list
-            A list of converted arguments ready to be fed to the plan.
-        '''
-        args = []
-
-        if isinstance(arguments, str):
-            arguments = arguments.split(',')
-        elif not isinstance(arguments, list):
-            arguments = [arguments]
-
-        for i, (key, val) in enumerate(plan_arguments[plan].items()):
-            if isinstance(val, type):
-                args.append(val(arguments[i]))
-            elif isinstance(val, str) and val == 'obj':
-                args.append(_str_to_obj(arguments[i]))
-            else:
-                raise FileDataRouterValueError(
-                    f'The value found from plan_arguments[{key}] in '
-                    f'"ios_multi_scan_plan_factory" is not a valid value.'
-                    f'Valid values are any ``type`` object or the string "obj"'
-                    )
-        return args
-
     # step through each of the requested scans and perform it.
     for (scan_name, parameters, settings) in scans:
         # check if a plan and arguments are given, use 'count' if not.
         plan = parameters.get('plan', 'count')
-        arguments = parameters.get('arguments', [])
+        args = parameters.get('arguments', [])
+        dets = parameters.get('detectors', [])
 
         # move to the predefined positions for this scan
         yield from _move_from_dict(settings)
 
-        # convert detectors to a list of ``ophyd.Device`` objects.
-        dets = [_str_to_obj(det)
-                for det in parameters['detectors'].split(',')]
-        # convert the arguments based on the plan type
-        args = _convert_arguments(plan, arguments)
         # extract the per_step function from the 'spectra_type' parameter
         spectra_obj = ip.user_ns[parameters['spectra_type']]
         spectra_list = parameters['interesting_spectra'].split(',')
@@ -691,4 +753,4 @@ xas_fly = make_filedatarouter_instance(
 multiscan = make_filedatarouter_instance(
     'test_scan_settings.xlsx', 'scan_name',
     'test_scan_parameters.xlsx', 'scan_name',
-    ios_multiscan_plan_factory, 'multiscan')
+    ios_multiscan_plan_factory_wrapper, 'multiscan')
