@@ -1,9 +1,11 @@
 from bluesky.plan_stubs import move_per_step, trigger_and_read, mv
 from bluesky.preprocessors import stub_wrapper
+from dataclasses import dataclass
 from IPython import get_ipython
 import numpy
 from ophyd.signal import Signal
 import pandas
+import typing
 ip = get_ipython()
 
 
@@ -63,6 +65,7 @@ class Pgm():
 
     def reset_fbl(self, *args, **kwargs):
         yield from sleep(10)
+
 
 pgm = Pgm('pgm')
 motor = hw.motor
@@ -201,7 +204,7 @@ def ios_multiscan_plan_factory(scans):
         # convert detectors to a list of ``ophyd.Device`` objects.
         dets = [_str_to_obj(det)
                 for det in parameters['detectors'].split(',')]
-        # convert the arguments basd on the plan type
+        # convert the arguments based on the plan type
         args = _convert_arguments(plan, arguments)
         # extract the per_step function from the 'spectra_type' parameter
         spectra_obj = ip.user_ns[parameters['spectra_type']]
@@ -226,8 +229,11 @@ def ios_multiscan_plan_factory(scans):
         # extract out the spectra meta-data
         md = {'spectra': {}}
         md['spectra'] = {
-            k: {'parameters': spectra_obj.parameters.dictionary[k],
-                'settings': spectra_obj.settings.dictionary[k]}
+            k: {'parameters': load_dictionary(
+                spectra_obj.parameters,
+                spectra_obj.defaults._parameters_index)[k],
+                'settings': load_dictionary(
+                spectra_obj.settings, spectra_obj.defaults._settings_index)[k]}
             for k in spectra_list}
         md['scan'] = {'settings': settings, 'parameters': parameters}
         # yield from the required plan, num_scans times.
@@ -474,148 +480,138 @@ def ios_xas_stepspectra_per_step_factory(spectra):
     return _per_step
 
 
-class FileDict():
-    '''A class used for dictionaries loaded from Excel files.
+def load_dictionary(filepath, index_name):
+    '''Loads up a dictionary from an excell file.
 
-    This class should be used to define an attribute for dictionaries loaded
-    from Office Excel/LibreOffice Calc files and the assoicated attributes for
-    the dictionary.
+    Returns a dictionary loaded from the excell file found at ``filepath``
+    using ``index_name`` to find the index name column in the file.
 
     Parameters
     ----------
-    name : str
-        The name of this attribute.
+    filepath : str, Path or None
+        filepath to load the dictionary data.
+    index_name : str
+        The name associated with the index column in the file
+    '''
+    temp_dict = {}
+
+    # extract the information form the file and write it to the dictionary
+    f = pandas.read_excel(filepath)
+    f = f.set_index(index_name)
+
+    for row_name in f.index:
+        temp_dict[row_name] = dict(f.loc[row_name])
+
+    return temp_dict
+
+
+@dataclass(frozen=True)
+class DefaultFileInfo:
+    '''A dataclass that holds the default file and plan_factory information.
+
+    This class should be used to define an attribute for ``FileInfo`` which
+    stores the name of the plan and the paths to the settings and parameter
+    files associated with the instance. These values are made semi-immutable by
+    using the ``frozen=True`` kwarg in the ``@dataclass`` decorator above.
+
 
     Attributes
     ----------
-    dictionary : dict
-        The dictionary containing the loaded information.
-    filepath : string or Path
-        The filepath to be used when loading the dictionary.
-    load : func
-        A function that loads a dictionary using the file found at the
-        ``filepath`` attribute.
-    reset_defaults : func
-        A function that resets the dictionary and the filepath to the default
-        values.
+    settings : string or Path
+        The filepath to be used when loading the settings dictionary.
+    _settings_index : str
+        The name of the column in the settings file that is the index
+    parameters : string or Path
+        The filepath to be used when loading the parameters dictionary.
+    _parameters_index : str
+        The name of the column in the parameters file that is the index
+    plan_factory : callable
+        The callable that generates a plan, or per_step function
     '''
-    def __init__(self, name, default_filepath, index_name):
-        self.name = name
-        self.dictionary = {}
-        self._default_filepath = default_filepath
-        self.filepath = default_filepath
-        self._index_name = index_name  # The name used as the index in the file
-        self.reset_defaults()
 
-    def load(self, filepath=None):
-        '''Loads up a dictionary from a file.
-
-        Loads a dictionary from the file found at ``self.filepath``, or found
-        using the optional 'filepath' kwarg. If using the optional 'filepath'
-        kwarg it also updates ``self.filepath``
-
-        Parameters
-        ----------
-        filepath : str, Path or None
-            filepath to load the dictionary data from, if the default
-            ``filepath=None`` is used it uses the value found in
-            ``self.filepath``.
-        '''
-        # if filepath = None use ``self.filepath`` otherwise update
-        # ``self.filepath``
-        if filepath is None:
-            filepath = self.filepath
-        else:
-            self.filepath = filepath
-
-        temp_dict = {}
-
-        # extract the information form the file and write it to the dictionary
-        f = pandas.read_excel(filepath)
-        f = f.set_index(self._index_name)
-
-        for row_name in f.index:
-            temp_dict[row_name] = dict(f.loc[row_name])
-
-        self.dictionary = temp_dict
-
-    def reset_defaults(self):
-        '''Resets ``self.filepath`` to the default value and reloads the dict.
-        '''
-        self.filepath = self._default_filepath
-        self.load()
+    __slots__ = ('settings', '_settings_index', 'parameters',
+                 '_parameters_index', 'plan_factory')
+    settings: str
+    _settings_index: str
+    parameters: str
+    _parameters_index: str
+    plan_factory: typing.Callable
 
 
-class FileDataRouter():
-    '''A class that is used to schedule many plans and returns a single plan.
+@dataclass
+class FileDataRouter:
+    '''A dataclass that holds the file and plan_factory information.
 
-    This class is intended to store a set of dictionaries associated with
-    multiple ``self.plan_factory`` function call. When called an instance of
-    this class takes in a list of 'items' and returns a plan that does the
-    following:
+    This class should be used to store the name of the plan and the paths to
+    the settings and parameter files associated with the instance. It also
+    has a ``reset_defaults`` method for resetting these values to the defaults
+    and a efaults attribute for storing the defaults. It can also be called
 
-    1. generate a list of ``(item, self.parameters.dictionary[item],
-        self.settings.dictionary[item])`` tuples from list `items`.
-    3. Calls ``self.function`` passing in the tuple list
-    4. Return the output plan.
+    NOTE: To make creating instances with the init values of settings,
+    parameters and plan_factory saved to the ``self.defaults`` attribute use
+    the helper function:
 
-    An instance of this class will have the following parameters and
-    attributes:
+    .. code::
+
+        make_filedatarouter_instance(settings, settings_index,
+                                     parameters, parameters_index,
+                                     plan_factory, name)
 
     Call Parameters
     ---------------
     items : str or list
-        The item to perform or a list of items to perform  at each step of a
-        plan. The items listed here must be present as keys in both the
-        ``self.parameters.dictionary`` and ``self.settings.dictionary``. Using
-        the str 'all' will result in all keys from the two dictionaries being
-        used provided they both have exactly the same keys.
-
-    Initialization Parameters
-    -------------------------
-    name : str
-        The name of the instantiated version of this class.
-    default_parameters_filepath : str or Path
-        The default filepath for the spectrum 'parameters' file.
-    default_settings_filepath : str or Path
-        The default filepath for the spectrum 'settings' file.
-    parameters_index_name : str
-        The column name that indicates the 'index' in the parameters file,
-        default is 'edge_name'.
-    settings_index_name : str
-        The column name that indicates the 'index' in the settings file,
-        default is 'edge_name'.
+        The item to perform or a list of items to perform  at each step of
+        a plan. The items listed here must be present as index keyss in
+        both files found at the paths ``self.parameters`` and
+        ``self.settings``. Using the str 'all' will result in all keys from
+        the two files being used provided they both have exactly the same
+        keys.
 
     Attributes
     ----------
-    parameters : FileDict
-        A FileDict object with an attribute dictionary that maps spectrum names
-        (like 'C1s') to the parameters that define the spectrum, which are by
-        definition 'low_energy', 'high_energy' and 'step_size'.
-    settings : FileDict
-        A FileDict object with an attribute dictionary that maps 'items' to a
-        dictionary mapping the ``ophyd.Device``'s that need to be set for each
-        'item' to the value to set it to. Examples might include items like
-        'det1.gain' or 'det1.exposure_time', but can include any 'settable'
-        ``ophyd.Device`` object.
-    function : func
-        A function that is to be called at step 2 above.
-    validate : method
-        A method that validates that a proposed 'item' can be used with the
-        currently loaded dictionaries.
+    settings : string or Path
+        The filepath to be used when loading the settings dictionary.
+    parameters : string or Path
+        The filepath to be used when loading the parameters dictionary.
+    plan_factory : callable
+        The callable that generates a plan, or per_step function, associated
+    defaults : DefaultFileInfo
+        An instance of DefaultFileInfo that stores the default values
+    restore_defaults : method
+        restores the values of ``self.settings``, ``self.parameters`` and
+        ``self.plan_factory`` to the defaults stored in ``self.defaults``
     '''
 
-    def __init__(self, name, function,
-                 default_parameters_filepath, parameters_index_name,
-                 default_settings_filepath, settings_index_name):
-        self.name = name
-        self.function = function
-        self.parameters = FileDict('parameters', default_parameters_filepath,
-                                   parameters_index_name)
-        self.settings = FileDict('settings', default_settings_filepath,
-                                 settings_index_name)
+    __slots__ = ('settings', 'parameters', 'plan_factory', 'defaults', 'name')
+    settings: str
+    parameters: str
+    plan_factory: typing.Callable
+    defaults: DefaultFileInfo
+    name: str
+
+    def restore_defaults(self):
+        '''Restores the other attributes to their default values.'''
+        self.settings = self.defaults.settings
+        self.parameters = self.defaults.parameters
+        self.plan_factory = self.defaults.plan_factory
 
     def __call__(self, items):
+        '''generates a plan using ``self.plan_factory``.
+
+        Returns a plan generated using ``self.plan_factory`` and the data found
+        in the files ``self.settings`` and ``self.paramters``.
+
+        Parameters
+        ----------
+        items : str or list
+            The item to perform or a list of items to perform  at each step of
+            a plan. The items listed here must be present as index keyss in
+            both files found at the paths ``self.parameters`` and
+            ``self.settings``. Using the str 'all' will result in all keys from
+            the two files being used provided they both have exactly the same
+            keys.
+        '''
+
         # check that spectra is a list or a str, if a str convert to a list
         if items == 'all':
             items = list(self.settings.keys())
@@ -627,51 +623,72 @@ class FileDataRouter():
                 f' a str or a list, instead we got {items} which is of type '
                 f'{type(items)}.')
 
-        # reload the files to make sure any saved changes are found
-        self.settings.load()
-        self.parameters.load()
+        # load the files
+        settings = load_dictionary(self.settings,
+                                   self.defaults._settings_index)
+        parameters = load_dictionary(self.parameters,
+                                     self.defaults._parameters_index)
 
         # check that items are keys in the two dictionaries
-        if (set(items) > set(self.parameters.dictionary)
-                or not set(items) <= set(self.settings.dictionary)):
+        if (set(items) > set(parameters)
+                or not set(items) <= set(settings)):
+
             raise FileDataRouterValueError(
                 f'The items passed to {self.name}(items) are not all keys in '
-                f'{self.name}.parameters.dictionary or {self.name}.settings.'
-                f'dictionary\nitems are: \n\t{items}\n{self.name}.'
-                f'parameters.dictionary keys are:\n\t'
-                f'{self.parameters.dictionary.keys()}\n{self.name}.'
-                f'settings.dictionary keys are:\n\t'
-                f'{self.settings.dictionary.keys()}')
+                f'{self.name}.parameters or {self.name}.settings'
+                f'\nitems are: \n\t{items}\n{self.name}.'
+                f'parameters keys are:\n\t'
+                f'{parameters.keys()}\n{self.name}.'
+                f'settings keys are:\n\t'
+                f'{settings.keys()}')
 
         # Generate the list of tuples
-        tuple_list = [(k, self.parameters.dictionary[k],
-                       self.settings.dictionary[k]) for k in items]
+        tuple_list = [(k, parameters[k], settings[k]) for k in items]
 
         # Call self.function
-        output = self.function(tuple_list)
+        output = self.plan_factory(tuple_list)
 
-        return output  # return the output of self.function
+        return output  # return the output of self.plan_factory
+
+
+def make_filedatarouter_instance(settings, settings_index,
+                                 parameters, parameters_index,
+                                 plan_factory, name):
+    '''Returns a ``FileInfo`` instance with the init values as default.
+
+    This function is required to automatically ensure that the init values are
+    stored to the default attribute
+    '''
+
+    return FileDataRouter(settings, parameters, plan_factory,
+                          DefaultFileInfo(settings, settings_index,
+                                          parameters, parameters_index,
+                                          plan_factory), name)
 
 
 # define the FileDataRouter for the xps per_step function
-xps = FileDataRouter('xps', ios_xps_per_step_factory,
-                     'test_spectrum_parameters.xlsx', 'peak_name',
-                     'test_spectrum_settings.xlsx', 'peak_name')
+xps = make_filedatarouter_instance(
+    'test_spectrum_settings.xlsx', 'peak_name',
+    'test_spectrum_parameters.xlsx', 'peak_name',
+    ios_xps_per_step_factory, 'xps')
 
 
 # define the FileDataRouter for the xas step per_step function
-xas_step = FileDataRouter('xas_step', ios_xas_stepspectra_per_step_factory,
-                          'test_xas_spectrum_parameters.xlsx', 'edge_name',
-                          'test_xas_spectrum_settings.xlsx', 'edge_name')
+xas_step = make_filedatarouter_instance(
+    'test_xas_spectrum_settings.xlsx', 'edge_name',
+    'test_xas_spectrum_parameters.xlsx', 'edge_name',
+    ios_xas_stepspectra_per_step_factory, 'xas_step')
 
 
 # define the FileDataRouter for the xas fly per_step function
-xas_fly = FileDataRouter('xas_fly', ios_xas_flyspectra_per_step_factory,
-                         'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
-                         'test_xas_fly_spectrum_settings.xlsx', 'edge_name')
+xas_fly = make_filedatarouter_instance(
+    'test_xas_fly_spectrum_settings.xlsx', 'edge_name',
+    'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
+    ios_xas_flyspectra_per_step_factory, 'xas_fly')
 
 
-# define the PlanScheduler for the scans
-multiscan = FileDataRouter('multiscan', ios_multiscan_plan_factory,
-                           'test_scan_parameters.xlsx', 'scan_name',
-                           'test_scan_settings.xlsx', 'scan_name')
+# define the FileDataRouter for the scans
+multiscan = make_filedatarouter_instance(
+    'test_scan_settings.xlsx', 'scan_name',
+    'test_scan_parameters.xlsx', 'scan_name',
+    ios_multiscan_plan_factory, 'multiscan')
