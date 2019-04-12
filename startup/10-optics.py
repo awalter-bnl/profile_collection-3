@@ -104,7 +104,7 @@ class PGM(Device):
             The offset value to use against the selected epu_table, default is
             the current value.
         fbl_setpoint : int, optional
-            The position t which the beam should be located (in pixels) for the
+            The position to which the beam should be located (in pixels) for the
             fbl, default is the current value.
         '''
 

@@ -130,7 +130,7 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *,
         return st
 
     def inner_plan():
-        yield from trigger_and_read(dets, name=stream)
+        yield from trigger_and_read(dets, name=streamname)
 
     print(md)
     rp = ramp_plan(go_plan(), pgm.energy,

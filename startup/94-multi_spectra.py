@@ -75,7 +75,7 @@ det = hw.det
 
 
 def _str_to_obj(str_ref):
-    '''Converts a string ref to an ``ophyd.Device`` object to an reference.
+    '''Converts a string ref to an ``ophyd.Device`` object reference.
 
     Parameters
     ----------
@@ -121,7 +121,7 @@ def _move_from_dict(move_dict):
 
 # define the plan that results in multiple 'scans' being performed at each step
 def ios_multiscan_plan_factory(scans):
-    '''returns a plan that will perform multiple scans in order.
+    '''Returns a plan that will perform multiple scans in order.
 
     This generates a plan to set each value required to generate a scan at IOS
     for each scan in 'scans'.
@@ -155,7 +155,7 @@ def ios_multiscan_plan_factory(scans):
         'count': {}}
 
     def _convert_arguments(plan, arguments):
-        '''converts the arguments value in scanmap to a useable list
+        '''Converts the arguments value in scanmap to a usable list.
 
         Parameters
         ----------
@@ -238,12 +238,12 @@ def ios_multiscan_plan_factory(scans):
 
 # define the plan that results in multiple 'xps' spectra being taken per_step.
 def ios_xps_per_step_factory(spectra):
-    '''returns a per_step function that will perform multiple XPS spectra.
+    '''Returns a per_step function that will perform multiple XPS spectra.
 
     This yields a per_step function that will set each value required to
     generate an XPS spectra using the specs detector at IOS and then triggers
     the detector (and any ancillary detectors) which executes the spectra for
-    each spectra in `spectra`.
+    each spectrum in `spectra`.
 
     Parameters
     ----------
@@ -263,7 +263,7 @@ def ios_xps_per_step_factory(spectra):
     def _per_step(detectors, step, pos_cache):
         '''This triggers multiple spectra at each point in a plan.
 
-        This function is analagous to the `bluesky.plan_stubs.one_nd_step`
+        This function is analogous to the `bluesky.plan_stubs.one_nd_step`
         function and should be used instead of that via the kwarg
         `per_step=multi_spectrum` in a call to any default plan except
         count.
@@ -312,10 +312,10 @@ def ios_xps_per_step_factory(spectra):
 # define the plan that results in multiple 'xas' spectra being taken per_step
 # using a 'flyscan' over the photon energy axis.
 def ios_xas_flyspectra_per_step_factory(spectra):
-    '''returns a per_step function that will perform multiple XAS spectra.
+    '''Returns a per_step function that will perform multiple XAS spectra.
 
     This yields a per_step function that will set each value required to
-    generate an XAS spectra by fly scanning over the energy axis at IOS for
+    generate an XAS spectrum by fly scanning over the energy axis at IOS for
     each spectrum in `spectra`.
 
     Parameters
@@ -337,7 +337,7 @@ def ios_xas_flyspectra_per_step_factory(spectra):
     def _per_step(detectors, step, pos_cache):
         '''This triggers multiple spectra at each point in a plan.
 
-        This function is analagous to the `bluesky.plan_stubs.one_nd_step`
+        This function is analogous to the `bluesky.plan_stubs.one_nd_step`
         function and should be used instead of that via the kwarg
         `per_step=multi_spectrum` in a call to any default plan except
         count.
@@ -395,12 +395,12 @@ def ios_xas_flyspectra_per_step_factory(spectra):
 # define the plan that results in multiple 'xas_step' spectra being taken
 # per_step.
 def ios_xas_stepspectra_per_step_factory(spectra):
-    '''returns a per_step function that will perform multiple XAS spectra.
+    '''Returns a per_step function that will perform multiple XAS spectra.
 
     This returns a per_step function, and a metadata dict that will set each
-    value required to generate an XAS step spectra using the specs detector at
+    value required to generate an XAS step spectrum using the specs detector at
     IOS and then steps through each energy point and triggers and reads the
-    detector (and any ancillary detectors) for each `spectra`.
+    detector (and any ancillary detectors) for each spectrum in `spectra`.
 
     Parameters
     ----------
@@ -421,7 +421,7 @@ def ios_xas_stepspectra_per_step_factory(spectra):
     def _per_step(detectors, step, pos_cache):
         '''This triggers multiple spectra at each point in a plan.
 
-        This function is analagous to the `bluesky.plan_stubs.one_nd_step`
+        This function is analogous to the `bluesky.plan_stubs.one_nd_step`
         function and should be used instead of that via the kwarg
         `per_step=multi_spectrum` in a call to any default plan except
         count.
@@ -441,7 +441,7 @@ def ios_xas_stepspectra_per_step_factory(spectra):
         yield from move_per_step(step, pos_cache)
 
         for (edge_name, parameters, settings) in spectra:
-            # move the devices in settings into placd
+            # move the devices in settings into place
             yield from _move_from_dict(settings)
             extra_dets = []
             # add ``spectra_num`` to the extra_dets list if needed
@@ -508,7 +508,7 @@ class FileDict():
         self.reset_defaults()
 
     def load(self, filepath=None):
-        '''Loads up a dictionary from a file
+        '''Loads up a dictionary from a file.
 
         Loads a dictionary from the file found at ``self.filepath``, or found
         using the optional 'filepath' kwarg. If using the optional 'filepath'
@@ -567,7 +567,7 @@ class FileDataRouter():
     items : str or list
         The item to perform or a list of items to perform  at each step of a
         plan. The items listed here must be present as keys in both the
-        ``self.parameters.dictionary`` and ``self.settings,dictionary``. Using
+        ``self.parameters.dictionary`` and ``self.settings.dictionary``. Using
         the str 'all' will result in all keys from the two dictionaries being
         used provided they both have exactly the same keys.
 
@@ -627,12 +627,12 @@ class FileDataRouter():
                 f' a str or a list, instead we got {items} which is of type '
                 f'{type(items)}.')
 
-        # reload the files to make sure any saved chagnes are found
+        # reload the files to make sure any saved changes are found
         self.settings.load()
         self.parameters.load()
 
         # check that items are keys in the two dictionaries
-        if (not set(items) <= set(self.parameters.dictionary)
+        if (set(items) > set(self.parameters.dictionary)
                 or not set(items) <= set(self.settings.dictionary)):
             raise FileDataRouterValueError(
                 f'The items passed to {self.name}(items) are not all keys in '
