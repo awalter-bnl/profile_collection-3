@@ -127,7 +127,7 @@ def ios_multiscan_plan_factory_wrapper(scans):
 
     This generates a plan to set each value required to generate a scan at IOS
     for each scan in 'scans', it is a wrapper around ios_multiscan_plan_factory
-    which parses the plan arguments string loaded from the excell file first.
+    which parses the plan arguments string loaded from the Excel file first.
 
     Parameters
     ----------
@@ -146,7 +146,7 @@ def ios_multiscan_plan_factory_wrapper(scans):
     '''
 
     def _parse_plan_arguments(scans):
-        '''Parses the scan arguments and detectors loaded from the excell file.
+        '''Parses the scan arguments and detectors loaded from the Excel file.
 
         Returns a parsed version of ``scans`` where ``parameters['arguments']``
         is converted from a string to an argument list and
@@ -190,7 +190,7 @@ def ios_multiscan_plan_factory_wrapper(scans):
             plan : str
                 The key to extract the type information from plan_arguments.
             arguments : list
-                The list of arguments extracted from the excell spreadsheet
+                The list of arguments extracted from the Excel spreadsheet
 
             Returns
             -------
@@ -560,9 +560,9 @@ def ios_xas_stepspectra_per_step_factory(spectra):
 
 
 def load_dictionary(filepath, index_name):
-    '''Loads up a dictionary from an excell file.
+    '''Loads up a dictionary from an Excel file.
 
-    Returns a dictionary loaded from the excell file found at ``filepath``
+    Returns a dictionary loaded from the Excel file found at ``filepath``
     using ``index_name`` to find the index name column in the file.
 
     Parameters
@@ -640,7 +640,7 @@ class FileDataRouter:
     ---------------
     items : str or list
         The item to perform or a list of items to perform  at each step of
-        a plan. The items listed here must be present as index keyss in
+        a plan. The items listed here must be present as index keys in
         both files found at the paths ``self.parameters`` and
         ``self.settings``. Using the str 'all' will result in all keys from
         the two files being used provided they both have exactly the same
@@ -678,13 +678,13 @@ class FileDataRouter:
         '''generates a plan using ``self.plan_factory``.
 
         Returns a plan generated using ``self.plan_factory`` and the data found
-        in the files ``self.settings`` and ``self.paramters``.
+        in the files ``self.settings`` and ``self.parameters``.
 
         Parameters
         ----------
         items : str or list
             The item to perform or a list of items to perform  at each step of
-            a plan. The items listed here must be present as index keyss in
+            a plan. The items listed here must be present as index keys in
             both files found at the paths ``self.parameters`` and
             ``self.settings``. Using the str 'all' will result in all keys from
             the two files being used provided they both have exactly the same
