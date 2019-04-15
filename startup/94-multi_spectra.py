@@ -64,7 +64,7 @@ class Pgm():
         self.name = name
 
     def reset_fbl(self, *args, **kwargs):
-        yield from sleep(10)
+        yield from sleep(0.1)
 
 
 pgm = Pgm('pgm')
