@@ -140,8 +140,8 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *,
 
 
 # NOTE : This function has been changed to take DETS as an argument
-def E_ramp(dets, start, stop, velocity, time=None, *,
-           streamname='primary', deadband=8, md=None):
+def E_ramp(dets, start, stop, velocity, time=None, *, streamname='primary',
+           deadband=8, md=None):
     '''
         dets: need to supply the detectors used
     '''
@@ -151,7 +151,7 @@ def E_ramp(dets, start, stop, velocity, time=None, *,
     inner = _run_E_ramp
 
     return (yield from inner(dets + [pgm.energy], start, stop, velocity,
-                             streamname=streamname, deadband=deadband, md=md))
+                             deadband=deadband, streamname=streamname, md=md))
 
 
 # THIS is no longer supported
