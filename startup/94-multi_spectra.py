@@ -24,59 +24,6 @@ class FileDataRouterValueError(ValueError):
     ...
 
 
-# This section is some temporary test objects
-from ophyd.sim import hw
-from bluesky.plan_stubs import sleep
-from bluesky.plans import count, scan, grid_scan
-from bluesky.simulators import summarize_plan
-
-
-def ERamp(dets, start, stop, velocity, streamname='primary'):
-    yield from count(dets)
-
-
-hw = hw()
-specs = hw.det2
-specs.name = 'specs'
-specs.gain = Signal(name='specs_gain')
-specs.decade = Signal(name='specs_decade')
-specs.low_energy = Signal(name='specs_low_energy')
-specs.high_energy = Signal(name='specs_high_energy')
-specs.step_size = Signal(name='specs_step_size')
-
-
-def _set_mode(val):
-    yield from mv(specs.acquisition_mode, val)
-
-
-specs.set_mode = _set_mode
-specs.acquisition_mode = Signal(name='specs_acquisition_mode')
-specs.num_acquisitions = Signal(name='specs_num_acquisitions')
-vortex = hw.det1
-vortex.name = 'vortex'
-vortex.gain = Signal(name='vortex_gain')
-vortex.decade = Signal(name='vortex_decade')
-
-
-class Pgm():
-    def __init__(self, name):
-        self.energy = Signal(name='pgm_energy')
-        self.name = name
-
-    def reset_fbl(self, *args, **kwargs):
-        yield from sleep(0.1)
-
-
-pgm = Pgm('pgm')
-motor = hw.motor
-motor1 = hw.motor1
-motor2 = hw.motor2
-motor3 = hw.motor3
-det = hw.det
-
-# above are the temporary objects for testing.
-
-
 def _str_to_obj(str_ref):
     '''Converts a string ref to an ``ophyd.Device`` object reference.
 
