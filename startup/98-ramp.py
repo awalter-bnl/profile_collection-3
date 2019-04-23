@@ -66,7 +66,8 @@ def simple_norm(doc):
 #        return NormPlot(y_key, fig=fig)
 
 
-def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
+def _run_E_ramp(dets, start, stop, velocity, deadband, *,
+                streamname='primary', md=None):
     if md is None:
         md = {}
 
@@ -129,7 +130,7 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
         return st
 
     def inner_plan():
-        yield from trigger_and_read(dets)
+        yield from trigger_and_read(dets, name=streamname)
 
     print(md)
     rp = ramp_plan(go_plan(), pgm.energy,
@@ -139,7 +140,8 @@ def _run_E_ramp(dets, start, stop, velocity, deadband, *, md=None):
 
 
 # NOTE : This function has been changed to take DETS as an argument
-def E_ramp(dets, start, stop, velocity, time=None, *, deadband=8, md=None):
+def E_ramp(dets, start, stop, velocity, time=None, *,
+           streamname='primary', deadband=8, md=None):
     '''
         dets: need to supply the detectors used
     '''
@@ -149,7 +151,7 @@ def E_ramp(dets, start, stop, velocity, time=None, *, deadband=8, md=None):
     inner = _run_E_ramp
 
     return (yield from inner(dets + [pgm.energy], start, stop, velocity,
-                             deadband=deadband, md=md))
+                             streamname=streamname, deadband=deadband, md=md))
 
 
 # THIS is no longer supported
