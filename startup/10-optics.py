@@ -17,9 +17,9 @@ class MirrorAxis(PVPositioner):
 class FeedbackLoop(Device):
     # this is added to allow for bluesky control of an M1b feedback loop
     # implemented at the IOC layer
-    enable = Cpt(EpicsSignalWithRBV, 'Sts:FB-Sel', name='enable')
-    setpoint = Cpt(EpicsSignalWithRBV, 'PID-SP', name='setpoint')
-    requested_value = Cpt(EpicsSignalWithRBV, 'PID.VAL', name='requested_value')
+    enable = Cpt(EpicsSignal, 'Sts:FB-Sel', name='enable')
+    setpoint = Cpt(EpicsSignal, 'PID-SP', name='setpoint')
+    requested_value = Cpt(EpicsSignalRO, 'PID.VAL', name='requested_value')
     actual_value = Cpt(EpicsSignalRO, 'PID.CVAL', name='actual_value')
     output_value = Cpt(EpicsSignalRO, 'PID.OVAL', name='output_value')
     error = Cpt(EpicsSignalRO, 'PID.Err', name='error')
@@ -28,7 +28,7 @@ class FeedbackLoop(Device):
     delta_t = Cpt(EpicsSignalRO, 'PID.DT', name='delta_t')
     min_delta_t = Cpt(EpicsSignal, 'PID.MDT', name='min_delta_t')
     scan_mode = Cpt(EpicsSignal, 'PID.SCAN', name='scan_mode')
-    deadband = Cpt(EpicsSignalWithRBV, 'Val:Sbl-SP', name='deadband')
+    deadband = Cpt(EpicsSignal, 'Val:Sbl-SP', name='deadband')
 
 class Mirror(Device):
     z = Cpt(MirrorAxis, '-Ax:Z}')
@@ -108,11 +108,11 @@ class PGM(Device):
             fbl, default is the current value.
         '''
 
-        initial_fbl_status = m1b2.enable.read()['m1b2_fbl_enable']['value']
+        initial_fbl_status = m1b1.fbl.enable.read()['m1b1_fbl_enable']['value']
 
         yield from mv(m1b1.fbl.enable, 0)  # turn off the fbl
         if epu_lookup_table:
-            yield from mv(epu1.flt.table, epu_lookup_table)
+            yield from mv(epu1.table, epu_lookup_table)
             # need to add mv to new epu lookup table here when it exists
         if epu_input_offset:
             yield from mv(epu1.flt.input_offset, epu_input_offset)
@@ -120,9 +120,9 @@ class PGM(Device):
         yield from mv(pgm.energy, energy)  # move to the requested energy
 
         if fbl_setpoint:
-            yield from mv(m1b1, fbl_setpoint)  # set the new setpoint value
+            yield from mv(m1b1.fbl.setpoint, fbl_setpoint)  # set the new setpoint value
         yield from mv(m1b1.fbl.enable, 0)  # turn on the fbl
-        yield from sleep(5)  # wait 5s for the feedback loop to reposition the beam
+        yield from bps.sleep(5)  # wait 5s for the feedback loop to reposition the beam
         yield from mv(m1b1.fbl.enable, initial_fbl_status)  # return to initial
 
 
