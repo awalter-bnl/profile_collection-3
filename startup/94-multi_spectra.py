@@ -7,6 +7,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from functools import partial
 from IPython import get_ipython
+import math
 import numpy
 from ophyd.signal import Signal
 from ophyd import StatusBase
@@ -202,12 +203,15 @@ def _move_from_dict(move_dict):
         to move to. See above for a description of this dictionary.
     '''
     settings_list = []
-    for key, value in move_dict.items():
-        obj = _str_to_obj(key)
-        settings_list.extend([obj, value])
+    def _clean_empty_vals(dict_to_clean):
+        return {k: v for k, v in dict_to_clean.items() if (not math.isnan(v))}
 
-    return (yield from mv(*settings_list))
+    if _clean_empty_vals(move_dict):
+        for key, value in _clean_empty_vals(move_dict).items():
+            obj = _str_to_obj(key)
+            settings_list.extend([obj, value])
 
+        return (yield from mv(*settings_list))
 
 def ios_multiscan_plan_factory_wrapper(scans):
     '''Returns a plan that will perform multiple scans in order.
