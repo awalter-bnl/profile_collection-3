@@ -204,7 +204,8 @@ def _move_from_dict(move_dict):
     '''
     settings_list = []
     def _clean_empty_vals(dict_to_clean):
-        return {k: v for k, v in dict_to_clean.items() if (not math.isnan(v))}
+        return {k: v for k, v in dict_to_clean.items()
+                if not math.isnan(v) if v is not None}
 
     if _clean_empty_vals(move_dict):
         for key, value in _clean_empty_vals(move_dict).items():
