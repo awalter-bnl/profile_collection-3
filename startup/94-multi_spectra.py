@@ -523,89 +523,6 @@ def ios_xas_flyspectra_per_step_factory(spectra):
             set prior to the edge given by edge_name being acquired.
     '''
 
-    def _per_step(detectors, step, pos_cache):
-        '''This triggers multiple spectra at each point in a plan.
-
-        This function is analogous to the `bluesky.plan_stubs.one_nd_step`
-        function and should be used instead of that via the kwarg
-        `per_step=multi_spectrum` in a call to any default plan except
-        count.
-
-        Parameters
-        ----------
-        detectors : list
-            a list of detectors to trigger at each point
-        step : dict
-            a dictionary mapping motors to values for this point in the
-            scan
-        pos_cache : dict
-            a dictionary mapping motors to their last-set positions.
-        '''
-        motors = step.keys()
-        # move any motors that the outer plan requires to be moved.
-        yield from move_per_step(step, pos_cache)
-
-        # set the mode for the specs detector if necessary
-        if specs in detectors:
-            yield from specs.set_mode('single_point')
-
-        for (edge_name, parameters, settings) in spectra:
-            # move the devices in settings into place
-            yield from _move_from_dict(settings)
-            extra_dets = []
-            # add ``spectra_num`` to the extra_dets list if needed
-            if parameters['num_spectra'] is None:
-                parameters['num_spectra'] = 1
-            elif parameters['num_spectra'] > 1:
-                extra_dets.append(spectra_num)
-
-            # reset the photon energy and the feedback loop for the given
-            # spectra
-            yield from pgm.reset_fbl(
-                parameters['alignment_energy'],
-                epu_lookup_table=parameters['epu_lookup_table'],
-                epu_input_offset=parameters['epu_input_offset'],
-                fbl_setpoint=parameters['fbl_setpoint'])
-
-            # collect num_spectra individual spectra at this point.
-            for num_spectra in range(1, parameters['num_spectra']+1):
-                if spectra_num in extra_dets:  # update spectra_num if needed
-                    yield from mv(spectra_num, num_spectra)
-                # perform the fly scan
-                yield from stub_wrapper(
-                    ERamp(list(detectors)+list(motors)+[pgm.energy]+extra_dets,
-                          parameters['low_energy'],
-                          parameters['high_energy'],
-                          parameters['velocity'],
-                          streamname=edge_name))
-    return _per_step
-
-
-# define the plan that results in multiple 'xas' spectra being taken per_step
-# using a 'flyscan' over the photon energy axis.
-def test_ios_xas_flyspectra_per_step_factory(spectra):
-    '''Returns a per_step function that will perform multiple XAS spectra.
-
-    This yields a per_step function that will set each value required to
-    generate an XAS spectrum by fly scanning over the energy axis at IOS for
-    each spectrum in `spectra`.
-
-    Parameters
-    ----------
-    spectra : list
-        A list of (edge_name, parameters, settings) tuples with the
-        following parameters:
-
-        edge_name : str
-            The name to use for the stream.
-        parameters : dict
-            A dictionary mapping parameter names to values for the edge given
-            by edge_name.
-        settings : dict
-            A dictionary mapping ``ophyd.Device``s to values that need to be
-            set prior to the edge given by edge_name being acquired.
-    '''
-
     def _generate_stash_object(detectors):
         '''Generates a dictionary that links detectors to temporary signals
 
@@ -1145,7 +1062,7 @@ xas_step = make_filedatarouter_instance(
 xas_fly = make_filedatarouter_instance(
     'test_xas_fly_spectrum_settings.xlsx', 'edge_name',
     'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
-    test_ios_xas_flyspectra_per_step_factory, 'xas_fly')
+    ios_xas_flyspectra_per_step_factory, 'xas_fly')
 
 
 # define the FileDataRouter for the scans
