@@ -45,7 +45,7 @@ class Interpolator(Device):
     output_deadband = Cpt(EpicsSignal, 'Val:DBand1-SP')
     output_drive = Cpt(EpicsSignalRO, 'Val:OutDrv1-I')
     interpolation_status = Cpt(EpicsSignalRO, 'Sts:Interp1-Sts', string=True)
-    table = Cpt(EpicsSignal, 'Val:Table-Sel', name='table')
+#    table = Cpt(EpicsSignal, 'Val:Table-Sel', name='table')
 
 
 class EPU1(Device):
@@ -53,6 +53,8 @@ class EPU1(Device):
     phase = Cpt(PhaseMotor1, '-Ax:Phase}')
     flt = Cpt(Interpolator, '-FLT}')
     rlt = Cpt(Interpolator, '-RLT}')
+    table = Cpt(EpicsSignal, '}Val:Table-Sel', name='table')
+
 
 class EPU2(Device):
     gap = Cpt(GapMotor2, '-Ax:Gap}')

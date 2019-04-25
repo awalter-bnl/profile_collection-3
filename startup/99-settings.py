@@ -4,9 +4,20 @@ import json
 import bluesky.plans as bp
 import bluesky.plan_stubs as bps
 import bluesky.preprocessors as bpp
+from bluesky.suspenders import SuspendBoolHigh
 import uuid
 from cycler import cycler
 import pandas as pd
+
+
+# Add suspender for shutter
+# Note: to clear suspenders use RE.clear_suspenders()
+suspend_fe_shutter = SuspendBoolHigh(EpicsSignalRO('XF:23ID-PPS{Sh:FE}Pos-Sts'))
+RE.install_suspender(suspend_fe_shutter)
+
+suspend_ds_shutter = SuspendBoolHigh(EpicsSignalRO('XF:23ID2-PPS{PSh}Pos-Sts'))
+RE.install_suspender(suspend_ds_shutter)
+
 
 def relabel_fig(fig, new_label):
     fig.set_label(new_label)
@@ -105,6 +116,7 @@ def load_det_settings(fname, container=CONTAINER):
         edge_idx = entry.pop('edge_index')
         entry['samplegain'] = str(entry['samplegain'])
         entry['aumeshgain'] = str(entry['aumeshgain'])
+        entry['pd_gain'] = str(entry['pd_gain'])
         entry['edge_index'] = edge_idx
         SAMPLE_MAP2[edge_idx] = entry
 #    for k in SAMPLE_MAP2:
@@ -267,7 +279,7 @@ def XAS_edge_scan(edge, md=None):
 #    yield from bps.abs_set(m1b1_fp, 100)
     yield from bps.abs_set(feedback, 1, wait=True)
     yield from bps.sleep(5)
-    yield from bps.abs_set(feedback, 0, wait=True)
+#    yield from bps.abs_set(feedback, 0, wait=True)
 #    yield from bps.abs_set(vortex_x, det_settings['vortex_pos'], wait=True)
     yield from bps.abs_set(sample_sclr_gain, det_settings['samplegain'], wait=True)
     yield from bps.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
@@ -318,10 +330,10 @@ def XAS_edge_scan(edge, md=None):
             getattr(vortex, channel).kind = 'hinted'
     for channel in ['mca.rois.roi2.count','mca.rois.roi3.count']:
             getattr(vortex, channel).kind = 'normal'
-    for channel in ['channels.chan3','channels.chan4']:
+    for channel in ['channels.chan2','channels.chan3','channels.chan4']:
         getattr(sclr, channel).kind = 'hinted'
-    for channel in ['channels.chan2']:
-        getattr(sclr, channel).kind = 'normal'
+#    for channel in ['channels.chan2']:
+#        getattr(sclr, channel).kind = 'normal'
 
    
     scan_kwargs = {'start': e_scan_params['stop'],
@@ -334,6 +346,15 @@ def XAS_edge_scan(edge, md=None):
 #        tmp_pos = sample_props['pos'] + (j-((e_scan_params['scan_count']-1)/2))*e_scan_params['intervals']
 #        yield from bps.mov(appes_y, tmp_pos)
 #        yield from bps.abs_set(ioxas_x, tmp_pos, wait=True)
+        yield from bps.abs_set(feedback, 0, wait=True)
+        yield from bps.abs_set(pgm_energy, e_scan_params['stop'], wait=True)
+        yield from bps.abs_set(epu1table, e_scan_params['epu_table'], wait=True)
+        yield from bps.abs_set(epu1offset, e_scan_params['epu1offset'], wait=True)
+        yield from bps.sleep(15)
+#       yield from bps.abs_set(m1b1_fp, 100)
+        yield from bps.abs_set(feedback, 1, wait=True)
+        yield from bps.sleep(5)
+#        yield from bps.abs_set(feedback, 0, wait=True)
         yield from bps.abs_set(pgm_energy, e_scan_params['stop'], wait=True)
         yield from open_all_valves(all_valves)
         res = yield from bpp.subs_wrapper(E_ramp(dets, **scan_kwargs), {'stop': save_csv})
@@ -394,27 +415,30 @@ def edge_ascan(sample_name, edge, md=None):
     local_md.update(sample_props)
 
     # init_group = 'ME_INIT_' + str(uuid.uuid4())
-#    yield from bps.abs_set(ioxas_x, sample_props['pos'], wait=True)
-    yield from bps.mov(appes_x, sample_props['pos_x'])
-    yield from bps.mov(appes_y, sample_props['pos_y'])
+    yield from bps.abs_set(ioxas_x, sample_props['pos'], wait=True)
+    yield from bps.abs_set(diag3_y, sample_props['diag3_y'], wait=True)
+#    yield from bps.mov(appes_x, sample_props['pos_x'])
+#    yield from bps.mov(appes_y, sample_props['pos_y'])
     yield from bps.mov(au_mesh, e_scan_params['au_mesh'])
 #    yield from bps.mov(appes_t, sample_props['pos_theta'])
     yield from bps.abs_set(feedback, 0, wait=True)
     yield from bps.abs_set(pgm_energy, e_scan_params['e_align'], wait=True)
     yield from bps.abs_set(epu1table, e_scan_params['epu_table'], wait=True)
     yield from bps.abs_set(epu1offset, e_scan_params['epu1offset'], wait=True)
-    yield from bps.sleep(20)
+    yield from bps.sleep(5)
 #    yield from bps.abs_set(m1b1_fp, 100)
     yield from bps.abs_set(feedback, 1, wait=True)
-#    yield from bps.sleep(5)
+    yield from bps.sleep(5)
 #    yield from bps.abs_set(feedback, 0, wait=True)
-#    yield from bps.abs_set(vortex_x, det_settings['vortex_pos'], wait=True)
+    yield from bps.abs_set(vortex_x, det_settings['vortex_pos'], wait=True)
     yield from bps.abs_set(sample_sclr_gain, det_settings['samplegain'], wait=True)
     yield from bps.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
     yield from bps.abs_set(aumesh_sclr_gain, det_settings['aumeshgain'], wait=True)
     yield from bps.abs_set(aumesh_sclr_decade, det_settings['aumeshdecade'], wait=True)
     yield from bps.abs_set(sclr_time, det_settings['sclr_time'], wait=True)
-
+    yield from bps.abs_set(pd_sclr_gain, det_settings['pd_gain'], wait=True)
+    yield from bps.abs_set(pd_sclr_decade, det_settings['pd_decade'], wait=True)
+ 
  #   yield from open_all_valves(all_valves)
     # yield from bp.wait(init_group)
 
@@ -433,6 +457,8 @@ def edge_ascan(sample_name, edge, md=None):
     yield from bps.abs_set(vortex.mca.preset_real_time, det_settings['vortex_time'], wait=True)
     yield from bps.abs_set(sample_sclr_decade, det_settings['sampledecade'], wait=True)
     yield from bps.abs_set(aumesh_sclr_decade, det_settings['aumeshdecade'], wait=True)
+    yield from bps.abs_set(pd_sclr_decade, det_settings['pd_decade'], wait=True)
+
 
 #    lp_list = []
 #    for n in ['sclr_ch4', 'vortex_mca_rois_roi4_count']:
@@ -471,9 +497,17 @@ def edge_ascan(sample_name, edge, md=None):
                    'md': md}
     ret = []
     for j in range(e_scan_params['scan_count']):
-#        tmp_pos = sample_props['pos'] + (j-((e_scan_params['scan_count']-1)/2))*e_scan_params['intervals']
-#        yield from bps.mov(appes_y, tmp_pos)
-#        yield from bps.abs_set(ioxas_x, tmp_pos, wait=True)
+        tmp_pos = sample_props['pos'] + (j-((e_scan_params['scan_count']-1)/2))*e_scan_params['intervals']
+        yield from bps.abs_set(ioxas_x, tmp_pos, wait=True)
+        yield from bps.abs_set(feedback, 0, wait=True)
+        yield from bps.abs_set(pgm_energy, e_scan_params['e_align'], wait=True)
+        yield from bps.abs_set(epu1table, e_scan_params['epu_table'], wait=True)
+        yield from bps.abs_set(epu1offset, e_scan_params['epu1offset'], wait=True)
+        yield from bps.sleep(20)
+#       yield from bps.abs_set(m1b1_fp, 100)
+        yield from bps.abs_set(feedback, 1, wait=True)
+        yield from bps.sleep(5)
+#        yield from bps.abs_set(feedback, 0, wait=True)
         yield from bps.abs_set(pgm_energy, e_scan_params['stop'], wait=True)
         yield from open_all_valves(all_valves)
         res = yield from bpp.subs_wrapper(E_ramp(dets, **scan_kwargs), {'stop': save_csv})
@@ -581,7 +615,7 @@ def finish_XAS():
 #        f.close()
 
 def save_csv(edge, stop_doc):
-    required_columns=['pgm_energy_readback', 'sclr_ch3', 'sclr_ch4', 'norm_ch4', 'vortex_mca_rois_roi4_count', 'vortex_mca_rois_roi3_count']
+    required_columns=['pgm_energy_readback', 'sclr_ch2', 'sclr_ch3', 'sclr_ch4', 'norm_ch4', 'vortex_mca_rois_roi4_count', 'vortex_mca_rois_roi3_count']
     h = db[stop_doc['run_start']]
     df = db.get_table(h)
     fn = '{name}_{edge}_{scan_id}.csv'.format(**h.start)

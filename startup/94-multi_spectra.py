@@ -1,5 +1,5 @@
 from bluesky.plan_stubs import (move_per_step, trigger_and_read, trigger, read,
-                                mv, wait)
+                                mv, wait, abs_set)
 from bluesky.preprocessors import stub_wrapper
 from bluesky.utils import short_uid as _short_uid
 import copy
@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from IPython import get_ipython
 import numpy
 from ophyd.signal import Signal
+from ophyd import StatusBase
 import pandas
 import typing
 ip = get_ipython()
@@ -37,6 +38,7 @@ from bluesky.plan_stubs import sleep
 from bluesky.plans import count, scan, grid_scan
 from bluesky.simulators import summarize_plan
 from databroker import Broker
+import time
 
 
 RE = RunEngine()
@@ -76,13 +78,12 @@ class MonoFly():
         self.name=name
 
     start_sig = Signal(name='start_sig')
-    stop_sig = Signal(name='stop_sig')
+    stop_sig = Signal(name='stop_sig', kind='omitted')
     velocity = Signal(name='velocity')
 
     fly_start = Signal(name='fly_start')
     fly_stop = Signal(name='fly_stop')
-    scan_status = Signal(name='scan_status')
-
+    scan_status = Signal(name='scan_status',value=0)
 
 class Pgm():
     def __init__(self, name):
@@ -94,16 +95,47 @@ class Pgm():
     def reset_fbl(self, *args, **kwargs):
         yield from sleep(0.1)
 
+def describe_func():
+    return {'scan_status':{'enum_strs':['done','scaning']}}
+
+def set_function(val):
+    if val==1:
+        pgm.fly.scan_status.set(1)
+        time.sleep(5)
+        pgm.fly.scan_status.set(0)
+        return pgm.energy.set(pgm.fly.stop_sig.get())
+    else:
+        return StatusBase(done=True, success=True)
+
 
 pgm = Pgm('pgm')
 pgm.energy.name='pgm_energy'
 pgm.fly.scan_axis=pgm.energy
+pgm.fly.scan_status.describe=describe_func
+pgm.fly.fly_start.set=set_function
 pgm.energy.delay=0.1
 motor = hw.motor
 motor1 = hw.motor1
 motor2 = hw.motor2
 motor3 = hw.motor3
 det = hw.det
+
+
+class Flt():
+    def __init__(self, name):
+        self.name=name
+
+    input_pv = Signal(name='input_pv')
+    output_deadband = Signal(name='output_deadband')
+
+
+class Epu1():
+    def __init__(self, name):
+        self.name=name
+
+    flt = Flt(name='flt')
+
+epu1=Epu1(name='epu1')
 
 # above are the temporary objects for testing.
 
@@ -230,7 +262,7 @@ def ios_multiscan_plan_factory_wrapper(scans):
             'grid_scan': {'motor1': 'obj', 'start1': float, 'stop1': float,
                           'num1': int, 'motor2': 'obj', 'start2': float,
                           'stop2': float, 'num2': int, 'snake': bool},
-            'count': {}}
+            'ios_count': {}}
 
         def _convert_arguments(plan, arguments):
             '''Converts the arguments value in scanmap to a usable list.
@@ -335,11 +367,16 @@ def ios_multiscan_plan_factory(scans):
         # extract the per_step function from the 'spectra_type' parameter
         spectra_obj = ip.user_ns[parameters['spectra_type']]
         spectra_list = parameters['interesting_spectra'].split(',')
-        # define a function that loops over each spectra group 'group_num'
-        # times
-        spectra_detectors.set(dets+[pgm.energy])  # using `.set()` here for summarize plan
+
+        # set the required list of detectors for each spectra point. using
+        # `.set()` purely to make summarize_plan produce useful output as
+        # 'spectra_detectors' is a `Signal` not connected to hardware this
+        # approach is safe.
+        spectra_detectors.set(dets+[pgm.energy])
         _per_step = spectra_obj(spectra_list)
 
+        # define a function that loops over each spectra group 'group_num'
+        # times
         def _group_step(detectors, step, pos_cache):
             extra_dets = []
             # add ``group_num`` to the extra_dets list if needed
@@ -363,6 +400,7 @@ def ios_multiscan_plan_factory(scans):
                 load_dictionary(spectra_obj.settings,
                                 spectra_obj.defaults._settings_index)[k])}
             for k in spectra_list}
+
         # remove duplicate info from the parameters dictionary
         md_parameters = _sanitize_dict(parameters)
         md_parameters.pop('arguments')
@@ -435,15 +473,16 @@ def ios_xps_per_step_factory(spectra):
             # spectra
             yield from pgm.reset_fbl(
                 parameters['alignment_energy'],
-                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_lookup_table=int(parameters['epu_lookup_table']),
                 epu_input_offset=parameters['epu_input_offset'],
                 fbl_setpoint=parameters['fbl_setpoint'])
 
+
             # set the parameters for the scan
-            yield from mv(specs.low_energy, parameters['low_energy'],
-                          specs.high_energy, parameters['high_energy'],
-                          specs.step_size, parameters['step_size'],
-                          specs.num_acquisitions, parameters['num_spectra'],
+            yield from mv(specs.cam.low_energy, parameters['low_energy'],
+                          specs.cam.high_energy, parameters['high_energy'],
+                          specs.cam.step_size, parameters['step_size'],
+                          specs.cam.num_images, parameters['num_spectra'],
                           pgm.energy, parameters['photon_energy'])
             # set the specs detector mode
             yield from specs.set_mode('spectrum')
@@ -534,6 +573,204 @@ def ios_xas_flyspectra_per_step_factory(spectra):
                           parameters['high_energy'],
                           parameters['velocity'],
                           streamname=edge_name))
+    return _per_step
+
+
+# define the plan that results in multiple 'xas' spectra being taken per_step
+# using a 'flyscan' over the photon energy axis.
+def test_ios_xas_flyspectra_per_step_factory(spectra):
+    '''Returns a per_step function that will perform multiple XAS spectra.
+
+    This yields a per_step function that will set each value required to
+    generate an XAS spectrum by fly scanning over the energy axis at IOS for
+    each spectrum in `spectra`.
+
+    Parameters
+    ----------
+    spectra : list
+        A list of (edge_name, parameters, settings) tuples with the
+        following parameters:
+
+        edge_name : str
+            The name to use for the stream.
+        parameters : dict
+            A dictionary mapping parameter names to values for the edge given
+            by edge_name.
+        settings : dict
+            A dictionary mapping ``ophyd.Device``s to values that need to be
+            set prior to the edge given by edge_name being acquired.
+    '''
+
+    def _generate_stash_object(detectors):
+        '''Generates a dictionary that links detectors to temporary signals
+
+        This function takes in a list of ophyd objects (detectors) and for each
+        one creates a temporary `Ophyd.Signal` object within which we can store
+        the cached read values and return on a `Siganl.read()` call.
+
+        Parameters
+        ----------
+        detectors : list[objs]
+            A list of ophyd objects to be read at each point in the spectra.
+
+        Returns
+        -------
+        stash_objects : dict{name: obj}
+            A dictionary mapping field names to Ophyd.Signal objects.
+        '''
+        stash_objects = OrderedDict()
+        for obj in detectors:
+            describe_dict=obj.describe()
+            for field in obj.describe():  # each field
+                # update the describe dict to indicate an array
+                describe_dict[f'{field}']['dtype']='array'
+                describe_dict[f'{field}']['shape']=[1, -1]
+                # add the field: stash_object pair to stash_objects
+                stash_objects[f'{field}_value'] = StashSignal(
+                    name=f'{field}',
+                    describe_dict={
+                        f'{field}': describe_dict[f'{field}']})
+                # copy and update the timestamp describe dict.
+                timestamp_describe_dict = copy.deepcopy(
+                    describe_dict[f'{field}'])
+                timestamp_describe_dict = {
+                    f'{field}_timestamp':copy.deepcopy(
+                        describe_dict[f'{field}'])}
+                timestamp_describe_dict[f'{field}_timestamp'][
+                    'dtype'] = 'array'
+                timestamp_describe_dict[f'{field}_timestamp']['precision'] = 7
+                # add the field_timestamp: stash object pair to stash_objects
+                stash_objects[f'{field}_timestamp'] = StashSignal(
+                    name=f'{field}_timestamp',
+                    describe_dict=timestamp_describe_dict)
+
+        return stash_objects
+
+    # create the list of ophyd objects for stashing values
+    spectra_objects = spectra_detectors.get()
+    stash_objects=_generate_stash_object(spectra_objects)
+
+    def _per_step(detectors, step, pos_cache):
+        '''This triggers multiple spectra at each point in a plan.
+
+        This function is analogous to the `bluesky.plan_stubs.one_nd_step`
+        function and should be used instead of that via the kwarg
+        `per_step=multi_spectrum` in a call to any default plan except
+        count.
+
+        Parameters
+        ----------
+        detectors : list
+            a list of detectors to trigger at each point
+        step : dict
+            a dictionary mapping motors to values for this point in the
+            scan
+        pos_cache : dict
+            a dictionary mapping motors to their last-set positions.
+        '''
+        motors = step.keys()
+        # move any motors that the outer plan requires to be moved.
+        yield from move_per_step(step, pos_cache)
+
+        # set the mode for the specs detector if necessary
+        if specs in detectors:
+            yield from specs.set_mode('single_point')
+
+        for (edge_name, parameters, settings) in spectra:
+            # move the devices in settings into place
+            yield from _move_from_dict(settings)
+
+            # reset the photon energy and the feedback loop for the given
+            # spectra
+            yield from pgm.reset_fbl(
+                parameters['alignment_energy'],
+                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_input_offset=parameters['epu_input_offset'],
+                fbl_setpoint=parameters['fbl_setpoint'])
+
+            # collect num_spectra individual spectra at this point.
+            for num_spectra in range(1, parameters['num_spectra']+1):
+                cache_dict={}  # ensure the cache_dict is empty
+
+                # perform the fly scan
+
+                # put the energy at the starting value and set the fly
+                # parameters
+                yield from mv(pgm.energy, parameters['low_energy'],
+                              pgm.fly.start_sig, parameters['low_energy'],
+                              pgm.fly.stop_sig, parameters['high_energy'],
+                              pgm.fly.velocity, parameters['velocity'])
+                old_db = epu1.flt.output_deadband.get()
+                yield from mv(epu1.flt.output_deadband, parameters['deadband'])
+                # get the old value
+                v = (yield from read(epu1.flt.input_pv))
+                if v is None:
+                    old_link = 'original value'
+                else:
+                    n = epu1.flt.input_pv.name
+                    old_link = v[n]['value']
+
+                # change to track the readout energy.
+                yield from mv(epu1.flt.output_deadband, old_db)
+
+                # start the energy flying
+                ret = (yield from abs_set(pgm.fly.fly_start, 1))
+                st = StatusBase()
+                enum_map = pgm.fly.scan_status.describe()[
+                    pgm.fly.scan_status.name]['enum_strs']
+
+                def _done_cb(value, old_value, **kwargs):
+                    old_value = enum_map[int(old_value)]
+                    value = enum_map[int(value)]
+                    if old_value != value and value == 'Ready':
+                        st._finished()
+                        pgm.fly.scan_status.clear_sub(_done_cb)
+
+                # subscribe the scan_status to the moving axis if running scan
+                if ret is not None:
+                    pgm.fly.scan_status.subscribe(_done_cb, run=False)
+                else:
+                    st._finished()
+                    print('SIM MODE')
+
+                # measure while the scan axis is still moving
+                while ret is not None and not ret.done: # for testing
+                #while st is not None and not st.done:
+                    # trigger all of the devices and wait for completion
+                    grp = _short_uid('trigger')
+                    for obj in detectors:
+                        yield from trigger(obj, group=grp)
+                    yield from wait(group=grp)
+
+                    # read all of the devices to the cache
+
+                    for obj in spectra_objects:
+                        data = yield from read(obj)
+                        if data: # purely for summarize_plan
+                            for k1, reading in data.items():
+                                for k2, value in reading.items():
+                                    if f'{k1}_{k2}' not in cache_dict.keys():
+                                        cache_dict[f'{k1}_{k2}']=[value]
+                                    else:
+                                        cache_dict[f'{k1}_{k2}'].append(value)
+
+                # move stashed readings to the stashes objects
+                for field, sig in stash_objects.items():
+                    if field in cache_dict.keys(): # for summarize_plan
+                        yield from mv(sig, list(cache_dict[field]))
+
+                # trigger and read the stash_objects Signal objects
+                yield from trigger_and_read(
+                    list(stash_objects.values())+list(detectors)+list(motors),
+                    name=edge_name)
+
+                # clean up afterwards
+                # move the energy setpoint to where the energy really is
+                yield from mv(pgm.energy, pgm.energy.position)
+                # set the interpolator to look at what it was looking at before
+                # the scan.  This should be the energy set point.
+                yield from mv(epu1.flt.input_pv, old_link)
+
     return _per_step
 
 
@@ -635,6 +872,10 @@ def ios_xas_stepspectra_per_step_factory(spectra):
         # move any motors that the outer plan requires to be moved.
         yield from move_per_step(step, pos_cache)
 
+        # set the mode for the specs detector if necessary
+        if specs in detectors:
+            yield from specs.set_mode('single_point')
+
         for (edge_name, parameters, settings) in spectra:
             # move the devices in settings into place
             yield from _move_from_dict(settings)
@@ -650,8 +891,7 @@ def ios_xas_stepspectra_per_step_factory(spectra):
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
 
-                cache=[] # ensure the cache is empty
-                cache_dict={}
+                cache_dict={}  # ensure the cache is empty
 
                 #step through each step in the 'spectra'
                 for energy in numpy.arange(parameters['low_energy'],
@@ -880,15 +1120,15 @@ def make_filedatarouter_instance(settings, settings_index,
 
 # define the FileDataRouter for the xps per_step function
 xps = make_filedatarouter_instance(
-    'test_spectrum_settings.xlsx', 'peak_name',
-    'test_spectrum_parameters.xlsx', 'peak_name',
+    'scan_files/xps_spectrum_settings.xlsx', 'peak_name',
+    'scan_files/xps_spectrum_parameters.xlsx', 'peak_name',
     ios_xps_per_step_factory, 'xps')
 
 
 # define the FileDataRouter for the xas step per_step function
 xas_step = make_filedatarouter_instance(
-    'test_xas_spectrum_settings.xlsx', 'edge_name',
-    'test_xas_spectrum_parameters.xlsx', 'edge_name',
+    'scan_files/xas_step_spectrum_settings.xlsx', 'edge_name',
+    'scan_files/xas_step_spectrum_parameters.xlsx', 'edge_name',
     ios_xas_stepspectra_per_step_factory, 'xas_step')
 
 
@@ -896,11 +1136,87 @@ xas_step = make_filedatarouter_instance(
 xas_fly = make_filedatarouter_instance(
     'test_xas_fly_spectrum_settings.xlsx', 'edge_name',
     'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
-    ios_xas_flyspectra_per_step_factory, 'xas_fly')
+    test_ios_xas_flyspectra_per_step_factory, 'xas_fly')
 
 
 # define the FileDataRouter for the scans
 multiscan = make_filedatarouter_instance(
-    'test_scan_settings.xlsx', 'scan_name',
-    'test_scan_parameters.xlsx', 'scan_name',
+    'scan_files/scan_settings.xlsx', 'scan_name',
+    'scan_files/scan_parameters.xlsx', 'scan_name',
     ios_multiscan_plan_factory_wrapper, 'multiscan')
+
+
+
+def count_step(detectors, step, pos_cache):
+    """Inner loop of a count scan
+This conversation was marked as resolved by awalter-bnl
+    This is the default function for ``per_step`` in count plans.
+    Parameters
+    ----------
+    detectors : iterable
+        devices to read
+    step : dict
+        maps motors to positions in this step. Not used, included for API
+        compatibility with ``bluesky.plan_stubs.one_nd_step``, and similar
+        custom ``per_step`` functions only.
+    pos_cache : dict
+        maps motors to their last-set positions. Not used, included for API
+        compatibility with ``bluesky.plan_stubs.one_nd_step``, and similar
+        custom ``per_step`` functions only.
+    """
+
+    yield from trigger_and_read(list(detectors))
+
+
+def ios_count(detectors, num=1, delay=None, *, per_step=None, md=None):
+    """
+    Take one or more readings from detectors.
+    Parameters
+    ----------
+    detectors : list
+        list of 'readable' objects
+    num : integer, optional
+        number of readings to take; default is 1
+        If None, capture data until canceled
+    delay : iterable or scalar, optional
+        Time delay in seconds between successive readings; default is 0.
+    per_step : callable, optional
+        hook for customizing action of inner loop (messages per step)
+        Expected signature:
+        ``f(detectors, step, pos_cache) -> plan (a generator)``
+        ..note ::
+            In this case ``step`` and ``pos_cache`` are provided purely for API
+            compatibility with ``bluesky.plan_stubs.one_nd_step`` and similar
+            custom ``per_step`` functions, hey will be passed empty dicts.
+    md : dict, optional
+        metadata
+    Notes
+    -----
+    If ``delay`` is an iterable, it must have at least ``num - 1`` entries or
+    the plan will raise a ``ValueError`` during iteration.
+    """
+    if num is None:
+        num_intervals = None
+    else:
+        num_intervals = num - 1
+    _md = {'detectors': [det.name for det in detectors],
+           'num_points': num,
+           'num_intervals': num_intervals,
+           'plan_args': {'detectors': list(map(repr, detectors)), 'num': num},
+           'plan_name': 'count',
+           'hints': {}
+           }
+    _md.update(md or {})
+    _md['hints'].setdefault('dimensions', [(('time',), 'primary')])
+
+    if per_step is None:
+        per_step = count_step
+
+    @bpp.stage_decorator(detectors)
+    @bpp.run_decorator(md=_md)
+    def inner_count():
+        return (yield from bps.repeat(partial(per_step, detectors, {}, {}),
+                                      num=num, delay=delay))
+
+    return (yield from inner_count())
+

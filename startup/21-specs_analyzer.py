@@ -31,6 +31,7 @@ class SpecsDetectorCam(CamBase):
     step_size = ADComponent(EpicsSignalWithRBV, 'STEP_SIZE', name='step_size')
     fat_values = ADComponent(EpicsSignalWithRBV, 'VALUES', name='fat_values')
     samples = ADComponent(EpicsSignalWithRBV, 'SAMPLES', name='samples')
+    lens_mode = ADComponent(EpicsSignalWithRBV, 'LENS_MODE', name='lens_mode')
 
     # Configuration
     scan_range = ADComponent(EpicsSignalWithRBV, 'SCAN_RANGE', kind=Kind.config, name='scan_range')
@@ -139,7 +140,8 @@ class SpecsDetector(SpecsSingleTrigger, DetectorBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stage_sigs.update({self.cam.safe_state: 0})
+        self.stage_sigs.update({self.cam.safe_state: 0}) #,
+                                # self.count_enable: 1}) to be added later
    
         self.count.kind = Kind.hinted
  
@@ -148,9 +150,15 @@ class SpecsDetector(SpecsSingleTrigger, DetectorBase):
                        name='hdf1',
                        suffix='HDF1:',
                        write_path_template='/GPFS/xf23id/xf23id2/data/specs/%Y/%m/%d/',
+                       # write_path_template='/nsls2/xf23id1/xf23id2/data/specs/%Y/%m/%d/',
+                       #read_path_template='/nsls2/xf23id1/xf23id2/data/specs/%Y/%m/%d/',
+                       #write_path_template='X:\xf23id2\data\specs\\%Y\\%m\\%d\\',
                        root='/GPFS/xf23id/xf23id2/')
+                       #root='/nsls2/xf23id1/xf23id2/')
     
     count = ADComponent(EpicsSignalRO, 'Stats5:Total_RBV', kind=Kind.hinted, name='count')
+    #count_enable = ADComponent(EpicsSignal, 'Stats5:EnableCallBacks', kind=Kind.omitted, name='count_enable')
+    # I need to find the actual PV for above
 
     acquisition_mode = None 
 
