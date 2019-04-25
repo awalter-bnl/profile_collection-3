@@ -1,10 +1,11 @@
 from bluesky.plan_stubs import (move_per_step, trigger_and_read, trigger, read,
-                                mv, wait, abs_set)
-from bluesky.preprocessors import stub_wrapper
+                                mv, wait, abs_set, repeat)
+from bluesky.preprocessors import stub_wrapper, stage_decorator, run_decorator
 from bluesky.utils import short_uid as _short_uid
 import copy
 from collections import OrderedDict
 from dataclasses import dataclass
+from functools import partial
 from IPython import get_ipython
 import numpy
 from ophyd.signal import Signal
@@ -49,16 +50,21 @@ RE.subscribe(db.insert)
 def ERamp(dets, start, stop, velocity, streamname='primary'):
     yield from count(dets)
 
+class Cam():
+    def __init__(self,name):
+        self.name=name
+
+    low_energy = Signal(name='specs_low_energy')
+    high_energy = Signal(name='specs_high_energy')
+    step_size = Signal(name='specs_step_size')
+    num_images = Signal(name='specs_num_images')
 
 hw = hw()
 specs = hw.det2
 specs.name = 'specs'
 specs.gain = Signal(name='specs_gain')
 specs.decade = Signal(name='specs_decade')
-specs.low_energy = Signal(name='specs_low_energy')
-specs.high_energy = Signal(name='specs_high_energy')
-specs.step_size = Signal(name='specs_step_size')
-
+specs.cam=Cam(name='specs_cam')
 
 def _set_mode(val):
     yield from mv(specs.acquisition_mode, val)
@@ -66,7 +72,6 @@ def _set_mode(val):
 
 specs.set_mode = _set_mode
 specs.acquisition_mode = Signal(name='specs_acquisition_mode')
-specs.num_acquisitions = Signal(name='specs_num_acquisitions')
 vortex = hw.det1
 vortex.name = 'vortex'
 vortex.gain = Signal(name='vortex_gain')
@@ -101,7 +106,7 @@ def describe_func():
 def set_function(val):
     if val==1:
         pgm.fly.scan_status.set(1)
-        time.sleep(5)
+        time.sleep(0.00001)
         pgm.fly.scan_status.set(0)
         return pgm.energy.set(pgm.fly.stop_sig.get())
     else:
@@ -683,8 +688,8 @@ def test_ios_xas_flyspectra_per_step_factory(spectra):
             # reset the photon energy and the feedback loop for the given
             # spectra
             yield from pgm.reset_fbl(
-                parameters['alignment_energy'],
-                epu_lookup_table=parameters['epu_lookup_table'],
+                float(parameters['alignment_energy']),
+                epu_lookup_table=int(parameters['epu_lookup_table']),
                 epu_input_offset=parameters['epu_input_offset'],
                 fbl_setpoint=parameters['fbl_setpoint'])
 
@@ -696,10 +701,11 @@ def test_ios_xas_flyspectra_per_step_factory(spectra):
 
                 # put the energy at the starting value and set the fly
                 # parameters
-                yield from mv(pgm.energy, parameters['low_energy'],
-                              pgm.fly.start_sig, parameters['low_energy'],
-                              pgm.fly.stop_sig, parameters['high_energy'],
-                              pgm.fly.velocity, parameters['velocity'])
+                yield from mv(
+                    pgm.energy, float(parameters['low_energy']),
+                    pgm.fly.start_sig, float(parameters['low_energy']),
+                    pgm.fly.stop_sig, float(parameters['high_energy']),
+                    pgm.fly.velocity, float(parameters['velocity']))
                 old_db = epu1.flt.output_deadband.get()
                 yield from mv(epu1.flt.output_deadband, parameters['deadband'])
                 # get the old value
@@ -734,7 +740,7 @@ def test_ios_xas_flyspectra_per_step_factory(spectra):
                     print('SIM MODE')
 
                 # measure while the scan axis is still moving
-                while ret is not None and not ret.done: # for testing
+                while ret is not None and not ret.done:                 # for testing
                 #while st is not None and not st.done:
                     # trigger all of the devices and wait for completion
                     grp = _short_uid('trigger')
@@ -753,6 +759,8 @@ def test_ios_xas_flyspectra_per_step_factory(spectra):
                                         cache_dict[f'{k1}_{k2}']=[value]
                                     else:
                                         cache_dict[f'{k1}_{k2}'].append(value)
+
+                    yield from sleep(0.02) # for testing, limits the num of points
 
                 # move stashed readings to the stashes objects
                 for field, sig in stash_objects.items():
@@ -884,7 +892,7 @@ def ios_xas_stepspectra_per_step_factory(spectra):
             # spectra
             yield from pgm.reset_fbl(
                 parameters['alignment_energy'],
-                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_lookup_table=int(parameters['epu_lookup_table']),
                 epu_input_offset=parameters['epu_input_offset'],
                 fbl_setpoint=parameters['fbl_setpoint'])
 
@@ -925,6 +933,7 @@ def ios_xas_stepspectra_per_step_factory(spectra):
                         yield from mv(sig, list(cache_dict[field]))
 
                 # trigger and read the stash_objects Signal objects
+
                 yield from trigger_and_read(
                     list(stash_objects.values())+list(detectors)+list(motors),
                     name=edge_name)
@@ -1120,15 +1129,15 @@ def make_filedatarouter_instance(settings, settings_index,
 
 # define the FileDataRouter for the xps per_step function
 xps = make_filedatarouter_instance(
-    'scan_files/xps_spectrum_settings.xlsx', 'peak_name',
-    'scan_files/xps_spectrum_parameters.xlsx', 'peak_name',
+    'test_xps_spectrum_settings.xlsx', 'peak_name',
+    'test_xps_spectrum_parameters.xlsx', 'peak_name',
     ios_xps_per_step_factory, 'xps')
 
 
 # define the FileDataRouter for the xas step per_step function
 xas_step = make_filedatarouter_instance(
-    'scan_files/xas_step_spectrum_settings.xlsx', 'edge_name',
-    'scan_files/xas_step_spectrum_parameters.xlsx', 'edge_name',
+    'test_xas_step_spectrum_settings.xlsx', 'edge_name',
+    'test_xas_step_spectrum_parameters.xlsx', 'edge_name',
     ios_xas_stepspectra_per_step_factory, 'xas_step')
 
 
@@ -1141,8 +1150,8 @@ xas_fly = make_filedatarouter_instance(
 
 # define the FileDataRouter for the scans
 multiscan = make_filedatarouter_instance(
-    'scan_files/scan_settings.xlsx', 'scan_name',
-    'scan_files/scan_parameters.xlsx', 'scan_name',
+    'test_scan_settings.xlsx', 'scan_name',
+    'test_scan_parameters.xlsx', 'scan_name',
     ios_multiscan_plan_factory_wrapper, 'multiscan')
 
 
@@ -1212,11 +1221,10 @@ def ios_count(detectors, num=1, delay=None, *, per_step=None, md=None):
     if per_step is None:
         per_step = count_step
 
-    @bpp.stage_decorator(detectors)
-    @bpp.run_decorator(md=_md)
+    @stage_decorator(detectors)
+    @run_decorator(md=_md)
     def inner_count():
-        return (yield from bps.repeat(partial(per_step, detectors, {}, {}),
-                                      num=num, delay=delay))
+        return (yield from repeat(partial(per_step, detectors, {}, {}),
+                                  num=num, delay=delay))
 
     return (yield from inner_count())
-
