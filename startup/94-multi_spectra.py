@@ -127,7 +127,7 @@ def ios_multiscan_plan_factory_wrapper(scans):
             'grid_scan': {'motor1': 'obj', 'start1': float, 'stop1': float,
                           'num1': int, 'motor2': 'obj', 'start2': float,
                           'stop2': float, 'num2': int, 'snake': bool},
-            'count': {}}
+            'ios_count': {}}
 
         def _convert_arguments(plan, arguments):
             '''Converts the arguments value in scanmap to a usable list.
@@ -259,8 +259,8 @@ def ios_multiscan_plan_factory(scans):
                 load_dictionary(spectra_obj.settings,
                                 spectra_obj.defaults._settings_index)[k])}
             for k in spectra_list}
-        md['scan'] = {'settings': _sanitize_dict(settings),
-                      'parameters': _sanitize_dict(parameters)}
+        #md['scan'] = {'settings': _sanitize_dict(settings),
+        #              'parameters': _sanitize_dict(parameters)}
 
         # yield from the required plan, num_scans times.
         for scan_num in range(parameters['num_scans']):
@@ -322,15 +322,16 @@ def ios_xps_per_step_factory(spectra):
             # spectra
             yield from pgm.reset_fbl(
                 parameters['alignment_energy'],
-                epu_lookup_table=parameters['epu_lookup_table'],
+                epu_lookup_table=int(parameters['epu_lookup_table']),
                 epu_input_offset=parameters['epu_input_offset'],
                 fbl_setpoint=parameters['fbl_setpoint'])
 
+
             # set the parameters for the scan
-            yield from mv(specs.low_energy, parameters['low_energy'],
-                          specs.high_energy, parameters['high_energy'],
-                          specs.step_size, parameters['step_size'],
-                          specs.num_acquisitions, parameters['num_spectra'],
+            yield from mv(specs.cam.low_energy, parameters['low_energy'],
+                          specs.cam.high_energy, parameters['high_energy'],
+                          specs.cam.step_size, parameters['step_size'],
+                          specs.cam.num_images, parameters['num_spectra'],
                           pgm.energy, parameters['photon_energy'])
             # set the specs detector mode
             yield from specs.set_mode('spectrum')
@@ -694,27 +695,103 @@ def make_filedatarouter_instance(settings, settings_index,
 
 # define the FileDataRouter for the xps per_step function
 xps = make_filedatarouter_instance(
-    'test_spectrum_settings.xlsx', 'peak_name',
-    'test_spectrum_parameters.xlsx', 'peak_name',
+    'scan_files/xps_spectrum_settings.xlsx', 'peak_name',
+    'scan_files/xps_spectrum_parameters.xlsx', 'peak_name',
     ios_xps_per_step_factory, 'xps')
 
 
 # define the FileDataRouter for the xas step per_step function
 xas_step = make_filedatarouter_instance(
-    'test_xas_spectrum_settings.xlsx', 'edge_name',
-    'test_xas_spectrum_parameters.xlsx', 'edge_name',
+    'scan_files/xas_step_spectrum_settings.xlsx', 'edge_name',
+    'scan_files/xas_step_spectrum_parameters.xlsx', 'edge_name',
     ios_xas_stepspectra_per_step_factory, 'xas_step')
 
 
 # define the FileDataRouter for the xas fly per_step function
 xas_fly = make_filedatarouter_instance(
-    'test_xas_fly_spectrum_settings.xlsx', 'edge_name',
-    'test_xas_fly_spectrum_parameters.xlsx', 'edge_name',
+    'scan_files/xas_fly_spectrum_settings.xlsx', 'edge_name',
+    'scan_files/xas_fly_spectrum_parameters.xlsx', 'edge_name',
     ios_xas_flyspectra_per_step_factory, 'xas_fly')
 
 
 # define the FileDataRouter for the scans
 multiscan = make_filedatarouter_instance(
-    'test_scan_settings.xlsx', 'scan_name',
-    'test_scan_parameters.xlsx', 'scan_name',
+    'scan_files/scan_settings.xlsx', 'scan_name',
+    'scan_files/scan_parameters.xlsx', 'scan_name',
     ios_multiscan_plan_factory_wrapper, 'multiscan')
+
+
+
+def count_step(detectors, step, pos_cache):
+    """Inner loop of a count scan
+This conversation was marked as resolved by awalter-bnl
+    This is the default function for ``per_step`` in count plans.
+    Parameters
+    ----------
+    detectors : iterable
+        devices to read
+    step : dict
+        maps motors to positions in this step. Not used, included for API
+        compatibility with ``bluesky.plan_stubs.one_nd_step``, and similar
+        custom ``per_step`` functions only.
+    pos_cache : dict
+        maps motors to their last-set positions. Not used, included for API
+        compatibility with ``bluesky.plan_stubs.one_nd_step``, and similar
+        custom ``per_step`` functions only.
+    """
+
+    yield from trigger_and_read(list(detectors))
+
+
+def ios_count(detectors, num=1, delay=None, *, per_step=None, md=None):
+    """
+    Take one or more readings from detectors.
+    Parameters
+    ----------
+    detectors : list
+        list of 'readable' objects
+    num : integer, optional
+        number of readings to take; default is 1
+        If None, capture data until canceled
+    delay : iterable or scalar, optional
+        Time delay in seconds between successive readings; default is 0.
+    per_step : callable, optional
+        hook for customizing action of inner loop (messages per step)
+        Expected signature:
+        ``f(detectors, step, pos_cache) -> plan (a generator)``
+        ..note ::
+            In this case ``step`` and ``pos_cache`` are provided purely for API
+            compatibility with ``bluesky.plan_stubs.one_nd_step`` and similar
+            custom ``per_step`` functions, hey will be passed empty dicts.
+    md : dict, optional
+        metadata
+    Notes
+    -----
+    If ``delay`` is an iterable, it must have at least ``num - 1`` entries or
+    the plan will raise a ``ValueError`` during iteration.
+    """
+    if num is None:
+        num_intervals = None
+    else:
+        num_intervals = num - 1
+    _md = {'detectors': [det.name for det in detectors],
+           'num_points': num,
+           'num_intervals': num_intervals,
+           'plan_args': {'detectors': list(map(repr, detectors)), 'num': num},
+           'plan_name': 'count',
+           'hints': {}
+           }
+    _md.update(md or {})
+    _md['hints'].setdefault('dimensions', [(('time',), 'primary')])
+
+    if per_step is None:
+        per_step = count_step
+
+    @bpp.stage_decorator(detectors)
+    @bpp.run_decorator(md=_md)
+    def inner_count():
+        return (yield from bps.repeat(partial(per_step, detectors, {}, {}),
+                                      num=num, delay=delay))
+
+    return (yield from inner_count())
+
