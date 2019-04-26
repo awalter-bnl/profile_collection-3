@@ -1,6 +1,6 @@
 from bluesky.plan_stubs import (move_per_step, trigger_and_read, trigger, read,
                                 mv, wait, abs_set, repeat)
-from bluesky.preprocessors import stub_wrapper, stage_decorator, run_decorator
+from bluesky.preprocessors import stage_decorator, run_decorator
 from bluesky.utils import short_uid as _short_uid
 import copy
 from collections import OrderedDict
@@ -35,7 +35,6 @@ class FileDataRouterValueError(ValueError):
 # This section is some temporary test objects
 from ophyd.sim import hw
 from bluesky import RunEngine
-from ophyd.device import Component as Cpt, Device
 from bluesky.plan_stubs import sleep
 from bluesky.plans import count, scan, grid_scan
 from bluesky.simulators import summarize_plan
@@ -51,21 +50,24 @@ RE.subscribe(db.insert)
 def ERamp(dets, start, stop, velocity, streamname='primary'):
     yield from count(dets)
 
+
 class Cam():
-    def __init__(self,name):
-        self.name=name
+    def __init__(self, name):
+        self.name = name
 
     low_energy = Signal(name='specs_low_energy')
     high_energy = Signal(name='specs_high_energy')
     step_size = Signal(name='specs_step_size')
     num_images = Signal(name='specs_num_images')
 
+
 hw = hw()
 specs = hw.det2
 specs.name = 'specs'
 specs.gain = Signal(name='specs_gain')
 specs.decade = Signal(name='specs_decade')
-specs.cam=Cam(name='specs_cam')
+specs.cam = Cam(name='specs_cam')
+
 
 def _set_mode(val):
     yield from mv(specs.acquisition_mode, val)
@@ -81,7 +83,7 @@ vortex.decade = Signal(name='vortex_decade')
 
 class MonoFly():
     def __init__(self, name):
-        self.name=name
+        self.name = name
 
     start_sig = Signal(name='start_sig')
     stop_sig = Signal(name='stop_sig', kind='omitted')
@@ -89,23 +91,26 @@ class MonoFly():
 
     fly_start = Signal(name='fly_start')
     fly_stop = Signal(name='fly_stop')
-    scan_status = Signal(name='scan_status',value=0)
+    scan_status = Signal(name='scan_status', value=0)
+
 
 class Pgm():
     def __init__(self, name):
         self.energy = hw.motor1
         self.name = name
 
-    fly=MonoFly(name='fly')
+    fly = MonoFly(name='fly')
 
     def reset_fbl(self, *args, **kwargs):
         yield from sleep(0.1)
 
+
 def describe_func():
-    return {'scan_status':{'enum_strs':['done','scaning']}}
+    return {'scan_status': {'enum_strs': ['done', 'scaning']}}
+
 
 def set_function(val):
-    if val==1:
+    if val == 1:
         pgm.fly.scan_status.set(1)
         time.sleep(0.00001)
         pgm.fly.scan_status.set(0)
@@ -115,11 +120,11 @@ def set_function(val):
 
 
 pgm = Pgm('pgm')
-pgm.energy.name='pgm_energy'
-pgm.fly.scan_axis=pgm.energy
-pgm.fly.scan_status.describe=describe_func
-pgm.fly.fly_start.set=set_function
-pgm.energy.delay=0.1
+pgm.energy.name = 'pgm_energy'
+pgm.fly.scan_axis = pgm.energy
+pgm.fly.scan_status.describe = describe_func
+pgm.fly.fly_start.set = set_function
+pgm.energy.delay = 0.1
 motor = hw.motor
 motor1 = hw.motor1
 motor2 = hw.motor2
@@ -129,7 +134,7 @@ det = hw.det
 
 class Flt():
     def __init__(self, name):
-        self.name=name
+        self.name = name
 
     input_pv = Signal(name='input_pv')
     output_deadband = Signal(name='output_deadband')
@@ -137,11 +142,12 @@ class Flt():
 
 class Epu1():
     def __init__(self, name):
-        self.name=name
+        self.name = name
 
     flt = Flt(name='flt')
 
-epu1=Epu1(name='epu1')
+
+epu1 = Epu1(name='epu1')
 
 # above are the temporary objects for testing.
 
@@ -203,6 +209,7 @@ def _move_from_dict(move_dict):
         to move to. See above for a description of this dictionary.
     '''
     settings_list = []
+
     def _clean_empty_vals(dict_to_clean):
         return {k: v for k, v in dict_to_clean.items()
                 if not math.isnan(v) if v is not None}
@@ -213,6 +220,7 @@ def _move_from_dict(move_dict):
             settings_list.extend([obj, value])
 
         return (yield from mv(*settings_list))
+
 
 def ios_multiscan_plan_factory_wrapper(scans):
     '''Returns a plan that will perform multiple scans in order.
@@ -425,6 +433,7 @@ def ios_multiscan_plan_factory(scans):
                                         md=md)
         spectra_detectors.set([])
 
+
 # define the plan that results in multiple 'xps' spectra being taken per_step.
 def ios_xps_per_step_factory(spectra):
     '''Returns a per_step function that will perform multiple XPS spectra.
@@ -487,7 +496,6 @@ def ios_xps_per_step_factory(spectra):
                 epu_input_offset=parameters['epu_input_offset'],
                 fbl_setpoint=parameters['fbl_setpoint'])
 
-
             # set the parameters for the scan
             yield from mv(specs.cam.low_energy, parameters['low_energy'],
                           specs.cam.high_energy, parameters['high_energy'],
@@ -547,11 +555,11 @@ def ios_xas_flyspectra_per_step_factory(spectra):
         '''
         stash_objects = OrderedDict()
         for obj in detectors:
-            describe_dict=obj.describe()
+            describe_dict = obj.describe()
             for field in obj.describe():  # each field
                 # update the describe dict to indicate an array
-                describe_dict[f'{field}']['dtype']='array'
-                describe_dict[f'{field}']['shape']=[1, -1]
+                describe_dict[f'{field}']['dtype'] = 'array'
+                describe_dict[f'{field}']['shape'] = [1, -1]
                 # add the field: stash_object pair to stash_objects
                 stash_objects[f'{field}_value'] = StashSignal(
                     name=f'{field}',
@@ -561,7 +569,7 @@ def ios_xas_flyspectra_per_step_factory(spectra):
                 timestamp_describe_dict = copy.deepcopy(
                     describe_dict[f'{field}'])
                 timestamp_describe_dict = {
-                    f'{field}_timestamp':copy.deepcopy(
+                    f'{field}_timestamp': copy.deepcopy(
                         describe_dict[f'{field}'])}
                 timestamp_describe_dict[f'{field}_timestamp'][
                     'dtype'] = 'array'
@@ -575,7 +583,7 @@ def ios_xas_flyspectra_per_step_factory(spectra):
 
     # create the list of ophyd objects for stashing values
     spectra_objects = spectra_detectors.get()
-    stash_objects=_generate_stash_object(spectra_objects)
+    stash_objects = _generate_stash_object(spectra_objects)
 
     def _per_step(detectors, step, pos_cache):
         '''This triggers multiple spectra at each point in a plan.
@@ -617,7 +625,7 @@ def ios_xas_flyspectra_per_step_factory(spectra):
 
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
-                cache_dict={}  # ensure the cache_dict is empty
+                cache_dict = {}  # ensure the cache_dict is empty
 
                 # perform the fly scan
 
@@ -663,7 +671,7 @@ def ios_xas_flyspectra_per_step_factory(spectra):
 
                 # measure while the scan axis is still moving
                 while ret is not None and not ret.done:                 # for testing
-                #while st is not None and not st.done:
+                # while st is not None and not st.done:                # use instead of above line
                     # trigger all of the devices and wait for completion
                     grp = _short_uid('trigger')
                     for obj in detectors:
@@ -674,19 +682,19 @@ def ios_xas_flyspectra_per_step_factory(spectra):
 
                     for obj in spectra_objects:
                         data = yield from read(obj)
-                        if data: # purely for summarize_plan
+                        if data:  # purely for summarize_plan
                             for k1, reading in data.items():
                                 for k2, value in reading.items():
                                     if f'{k1}_{k2}' not in cache_dict.keys():
-                                        cache_dict[f'{k1}_{k2}']=[value]
+                                        cache_dict[f'{k1}_{k2}'] = [value]
                                     else:
                                         cache_dict[f'{k1}_{k2}'].append(value)
 
-                    yield from sleep(0.02) # for testing, limits the num of points
+                    yield from sleep(0.02)  # for testing, limits the num of points
 
                 # move stashed readings to the stashes objects
                 for field, sig in stash_objects.items():
-                    if field in cache_dict.keys(): # for summarize_plan
+                    if field in cache_dict.keys():  # for summarize_plan
                         yield from mv(sig, list(cache_dict[field]))
 
                 # trigger and read the stash_objects Signal objects
@@ -749,11 +757,11 @@ def ios_xas_stepspectra_per_step_factory(spectra):
         '''
         stash_objects = OrderedDict()
         for obj in detectors:
-            describe_dict=obj.describe()
+            describe_dict = obj.describe()
             for field in obj.describe():  # each field
                 # update the describe dict to indicate an array
-                describe_dict[f'{field}']['dtype']='array'
-                describe_dict[f'{field}']['shape']=[1, -1]
+                describe_dict[f'{field}']['dtype'] = 'array'
+                describe_dict[f'{field}']['shape'] = [1, -1]
                 # add the field: stash_object pair to stash_objects
                 stash_objects[f'{field}_value'] = StashSignal(
                     name=f'{field}',
@@ -763,7 +771,7 @@ def ios_xas_stepspectra_per_step_factory(spectra):
                 timestamp_describe_dict = copy.deepcopy(
                     describe_dict[f'{field}'])
                 timestamp_describe_dict = {
-                    f'{field}_timestamp':copy.deepcopy(
+                    f'{field}_timestamp': copy.deepcopy(
                         describe_dict[f'{field}'])}
                 timestamp_describe_dict[f'{field}_timestamp'][
                     'dtype'] = 'array'
@@ -775,10 +783,9 @@ def ios_xas_stepspectra_per_step_factory(spectra):
 
         return stash_objects
 
-
     # create the list of ophyd objects for stashing values
     spectra_objects = spectra_detectors.get()
-    stash_objects=_generate_stash_object(spectra_objects)
+    stash_objects = _generate_stash_object(spectra_objects)
 
     def _per_step(detectors, step, pos_cache):
         '''This triggers multiple spectra at each point in a plan.
@@ -821,15 +828,15 @@ def ios_xas_stepspectra_per_step_factory(spectra):
             # collect num_spectra individual spectra at this point.
             for num_spectra in range(1, parameters['num_spectra']+1):
 
-                cache_dict={}  # ensure the cache is empty
+                cache_dict = {}  # ensure the cache is empty
 
-                #step through each step in the 'spectra'
+                # step through each step in the 'spectra'
                 for energy in numpy.arange(parameters['low_energy'],
                                            parameters['high_energy'] +
                                            parameters['step_size']/2,
                                            parameters['step_size']):
 
-                    yield from mv(pgm.energy, energy) # move to the new energy
+                    yield from mv(pgm.energy, energy)  # move to the new energy
 
                     # trigger all of the devices and wait for completion
                     grp = _short_uid('trigger')
@@ -841,17 +848,17 @@ def ios_xas_stepspectra_per_step_factory(spectra):
 
                     for obj in spectra_objects:
                         data = yield from read(obj)
-                        if data: # purely for summarize_plan
+                        if data:  # purely for summarize_plan
                             for k1, reading in data.items():
                                 for k2, value in reading.items():
                                     if f'{k1}_{k2}' not in cache_dict.keys():
-                                        cache_dict[f'{k1}_{k2}']=[value]
+                                        cache_dict[f'{k1}_{k2}'] = [value]
                                     else:
                                         cache_dict[f'{k1}_{k2}'].append(value)
 
                 # move stashed readings to the stashes objects
                 for field, sig in stash_objects.items():
-                    if field in cache_dict.keys(): # for summarize_plan
+                    if field in cache_dict.keys():  # for summarize_plan
                         yield from mv(sig, list(cache_dict[field]))
 
                 # trigger and read the stash_objects Signal objects
@@ -1075,7 +1082,6 @@ multiscan = make_filedatarouter_instance(
     'test_scan_settings.xlsx', 'scan_name',
     'test_scan_parameters.xlsx', 'scan_name',
     ios_multiscan_plan_factory_wrapper, 'multiscan')
-
 
 
 def count_step(detectors, step, pos_cache):
